@@ -1,0 +1,191 @@
+If your project is complete, here's the easiest way to push it to GitHub.
+
+---
+
+# Step 1: Create a GitHub repository
+
+1. Go to GitHub.
+2. Click **New Repository**.
+3. Give it a name, for example:
+
+```text
+usp-router-project
+```
+
+4. Keep it **Public** or **Private**.
+5. **Do not** initialize it with a README, `.gitignore`, or license if your local project already contains files.
+6. Click **Create repository**.
+
+GitHub will show commands similar to:
+
+```bash
+git remote add origin https://github.com/<username>/usp-router-project.git
+```
+
+---
+
+# Step 2: Open the project folder
+
+Open a terminal (PowerShell or Command Prompt) in:
+
+```text
+C:\Users\91819\Desktop\usp-router-project\backend
+```
+
+---
+
+# Step 3: Initialize Git
+
+If you haven't already:
+
+```bash
+git init
+```
+
+---
+
+# Step 4: Check status
+
+```bash
+git status
+```
+
+---
+
+# Step 5: Create a `.gitignore`
+
+In your project root, create a file named:
+
+```text
+.gitignore
+```
+
+Add:
+
+```gitignore
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.vscode/
+.idea/
+*.log
+```
+
+If you have secrets (passwords, tokens, API keys), don't commit them. Move them into a `.env` file and ignore that file.
+
+---
+
+# Step 6: Add files
+
+```bash
+git add .
+```
+
+---
+
+# Step 7: Commit
+
+```bash
+git commit -m "Initial TR-369 USP Router Project"
+```
+
+---
+
+# Step 8: Add the remote repository
+
+Replace the URL with your own GitHub repository URL:
+
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/usp-router-project.git
+```
+
+Verify it:
+
+```bash
+git remote -v
+```
+
+---
+
+# Step 9: Push
+
+If your default branch is `main`:
+
+```bash
+git branch -M main
+git push -u origin main
+```
+
+If GitHub asks you to authenticate, sign in with your GitHub account or use a Personal Access Token if prompted.
+
+---
+
+# Step 10: Verify
+
+Refresh your GitHub repository page. You should see your project files.
+
+---
+
+## Recommended repository structure
+
+```text
+usp-router-project/
+│
+├── app/
+├── mqtt/
+├── requirements.txt
+├── README.md
+├── .gitignore
+└── main.py
+```
+
+---
+
+## Create `requirements.txt`
+
+From your project directory, run:
+
+```bash
+pip freeze > requirements.txt
+```
+
+This records your Python dependencies.
+
+---
+
+## Create a `README.md`
+
+Include:
+
+```markdown
+# TR-369 USP Router Management System
+
+## Features
+- TR-181 Device Model
+- TR-369 USP Agent
+- FastAPI REST API
+- MQTT (Mosquitto)
+- SSH Communication using Paramiko
+- Router Operations (Ping, Reboot, Traceroute, Uptime)
+- Subscription and Notification
+- Session Management
+
+## Technologies
+- Python
+- FastAPI
+- Paramiko
+- Paho MQTT
+- Mosquitto
+- Ubuntu
+```
+
+---
+
+If this is your **first time using GitHub**, tell me:
+
+1. **Have you created the GitHub repository yet?**
+2. **Do you want to use HTTPS or SSH to push the code?**
+
+I can then guide you through the exact commands for your setup.
