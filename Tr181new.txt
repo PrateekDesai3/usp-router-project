@@ -1,0 +1,3937 @@
+Tr181new
+
+
+Perfect. We’ll continue in the same style as the existing project and only add modules that integrate into your current TR181Model. The next logical module is router/hosts.py, since a managed router should expose connected devices. This follows directly from the remaining module list in your project. 
+Tr181.txt
+ 
+⸻
+ 
+router/hosts.py
+import json
+import subprocess
+
+
+class Hosts:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Host": self.get_hosts()
+
+        }
+
+    def get_hosts(self):
+
+        hosts = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                ["ip", "-j", "neigh"],
+
+                text=True
+
+            )
+
+            neighbors = json.loads(output)
+
+            for neighbor in neighbors:
+
+                hosts.append({
+
+                    "IPAddress": neighbor.get("dst"),
+
+                    "MACAddress": neighbor.get("lladdr", ""),
+
+                    "Interface": neighbor.get("dev"),
+
+                    "State": neighbor.get("state")
+
+                })
+
+        except Exception as e:
+
+            hosts.append({
+
+                "Error": str(e)
+
+            })
+
+        return hosts
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.hosts import Hosts
+ 
+⸻
+ 
+Constructor
+self.hosts = Hosts()
+ 
+⸻
+ 
+get_model()
+Add:
+"Hosts": self.hosts.get(),
+ 
+⸻
+ 
+TR-181 Flow
+GET Device.Hosts
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+Hosts.get()
+
+        │
+
+        ▼
+
+ip -j neigh
+
+        │
+
+        ▼
+
+Linux Neighbor Table
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Example Response
+{
+    "Hosts": {
+        "Host": [
+            {
+                "IPAddress": "192.168.1.1",
+                "MACAddress": "50:ff:20:ab:cd:ef",
+                "Interface": "wlan0",
+                "State": "REACHABLE"
+            },
+            {
+                "IPAddress": "192.168.1.105",
+                "MACAddress": "dc:a6:32:11:22:33",
+                "Interface": "eth0",
+                "State": "STALE"
+            }
+        ]
+    }
+}
+ 
+⸻
+ 
+Updated Architecture
+TR181Model
+
+│
+
+├── DeviceInfo
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Folder Structure
+publisher/
+
+router/
+
+├── device_info.py
+├── interface_stack.py
+├── ip.py
+├── ethernet.py
+├── wifi.py
+├── routing.py
+├── dns.py
+├── dhcpv4.py
+├── nat.py
+├── firewall.py
+└── hosts.py
+This implementation uses the Raspberry Pi’s live neighbor table (ip -j neigh) to expose connected devices, making it consistent with the rest of your project rather than using hardcoded data.
+
+
+
+The next module should be router/management_server.py. This corresponds to the TR-181 Device.ManagementServer object and provides information about how the device is managed. Since your project uses a USP Agent over MQTT (rather than a CWMP ACS), this module should expose the management protocol and broker information from your existing configuration.
+router/management_server.py
+from config import (
+    BROKER,
+    PORT,
+    DEVICE_ID,
+    REQUEST_TOPIC,
+    RESPONSE_TOPIC,
+    NOTIFY_TOPIC
+)
+
+
+class ManagementServer:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Protocol": "TR-369 USP",
+
+            "Transport": "MQTT",
+
+            "Broker": BROKER,
+
+            "Port": PORT,
+
+            "DeviceID": DEVICE_ID,
+
+            "Topics": {
+
+                "Request": REQUEST_TOPIC,
+
+                "Response": RESPONSE_TOPIC,
+
+                "Notify": NOTIFY_TOPIC
+
+            },
+
+            "ConnectionStatus": "Connected"
+
+        }
+
+    def reconnect(self):
+
+        return True
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.management_server import ManagementServer
+ 
+⸻
+ 
+Constructor
+self.management_server = ManagementServer()
+ 
+⸻
+ 
+get_model()
+Add:
+"ManagementServer": self.management_server.get(),
+ 
+⸻
+ 
+Example Response
+{
+    "ManagementServer": {
+
+        "Protocol": "TR-369 USP",
+
+        "Transport": "MQTT",
+
+        "Broker": "broker.hivemq.com",
+
+        "Port": 1883,
+
+        "DeviceID": "raspberrypi01",
+
+        "Topics": {
+
+            "Request": "router/raspberrypi01/request",
+
+            "Response": "router/raspberrypi01/response",
+
+            "Notify": "router/raspberrypi01/notify"
+
+        },
+
+        "ConnectionStatus": "Connected"
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.ManagementServer
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+ManagementServer.get()
+
+        │
+
+        ▼
+
+Read config.py
+
+        │
+
+        ▼
+
+Return MQTT Management Details
+ 
+⸻
+ 
+Updated Architecture
+TR181Model
+
+│
+
+├── DeviceInfo
+├── ManagementServer
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next module
+The next module will be router/services.py, which will expose the Linux services running on the Raspberry Pi by querying systemctl, allowing your virtual router to report service status as part of the TR-181 model.
+
+
+
+
+Next we’ll implement router/services.py.
+This module exposes the TR-181 Device.Services object by reading the actual services running on the Raspberry Pi using systemctl.
+ 
+⸻
+ 
+router/services.py
+import subprocess
+
+
+class Services:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Service": self.get_services()
+
+        }
+
+    def get_services(self):
+
+        services = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+                    "systemctl",
+                    "list-units",
+                    "--type=service",
+                    "--state=running",
+                    "--no-pager",
+                    "--no-legend"
+                ],
+
+                text=True
+
+            )
+
+            for line in output.splitlines():
+
+                parts = line.split()
+
+                if len(parts) >= 4:
+
+                    services.append({
+
+                        "Name": parts[0],
+
+                        "LoadState": parts[1],
+
+                        "ActiveState": parts[2],
+
+                        "SubState": parts[3]
+
+                    })
+
+        except Exception as e:
+
+            services.append({
+
+                "Error": str(e)
+
+            })
+
+        return services
+
+    def start_service(self, service):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "systemctl",
+
+                    "start",
+
+                    service
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+
+    def stop_service(self, service):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "systemctl",
+
+                    "stop",
+
+                    service
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+
+    def restart_service(self, service):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "systemctl",
+
+                    "restart",
+
+                    service
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.services import Services
+ 
+⸻
+ 
+Constructor
+self.services = Services()
+ 
+⸻
+ 
+get_model()
+"Services": self.services.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "Services": {
+
+        "Service": [
+
+            {
+
+                "Name": "ssh.service",
+
+                "LoadState": "loaded",
+
+                "ActiveState": "active",
+
+                "SubState": "running"
+
+            },
+
+            {
+
+                "Name": "NetworkManager.service",
+
+                "LoadState": "loaded",
+
+                "ActiveState": "active",
+
+                "SubState": "running"
+
+            }
+
+        ]
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.Services
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+Services.get()
+
+        │
+
+        ▼
+
+systemctl list-units
+
+        │
+
+        ▼
+
+Linux Services
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next module is router/time.py, which will implement the TR-181 Device.Time object by retrieving the Raspberry Pi’s current time, timezone, NTP synchronization status, and uptime using Linux commands such as timedatectl. This module is useful for managed devices because controllers often query and configure time settings.
+
+
+
+
+Yes. Those screenshots are the full TR-181/USP Device:2 object hierarchy. We can implement them in your project.
+However, I do not recommend implementing all 60+ objects as empty classes. Many of them (like DOCSIS, DSL, MoCA, XPON, FAST, HomePlug, ZigBee, etc.) are specific to hardware that a Raspberry Pi doesn’t have. They would always return empty data.
+Instead, we should implement every object that is meaningful on a Raspberry Pi and provide placeholder implementations only where the hardware isn’t present.
+Phase 1 – Core (Already done)
+	•	✅ DeviceInfo
+	•	✅ IP
+	•	✅ Ethernet
+	•	✅ WiFi
+	•	✅ InterfaceStack
+	•	✅ Routing
+	•	✅ DNS
+	•	✅ DHCPv4
+	•	✅ NAT
+	•	✅ Firewall
+	•	✅ Hosts
+	•	✅ Services
+	•	✅ ManagementServer
+Phase 2 – High priority (Implement next)
+These are useful on a Raspberry Pi and can return real data:
+	•	LocalAgent
+	•	Time
+	•	Users
+	•	SoftwareModules
+	•	PeriodicStatistics
+	•	BulkData
+	•	LANConfigSecurity
+	•	Security
+	•	QoS
+	•	NeighborDiscovery
+	•	DHCPv6
+	•	Bridging
+	•	PPP
+	•	IPsec
+	•	UPnP
+	•	DLNA
+	•	FaultMgmt
+	•	DynamicDNS
+	•	MQTT
+Phase 3 – Optional / Stub implementations
+These don’t map naturally to Raspberry Pi hardware but can exist in the model and return empty or “Not Supported”:
+	•	DSL
+	•	Optical
+	•	ATM
+	•	PTM
+	•	DOCSIS
+	•	FAST
+	•	MoCA
+	•	HomePlug
+	•	HPNA
+	•	UPA
+	•	ZigBee
+	•	GRE
+	•	VXLAN
+	•	MAP
+	•	XPON
+	•	USB
+	•	Cellular
+	•	FWE
+	•	IEEE1905
+	•	LLDP
+	•	CaptivePortal
+	•	RouterAdvertisement
+	•	IPv6rd
+	•	DSLite
+	•	PCP
+	•	FAP
+	•	BASAPM
+	•	LMAP
+	•	SSH
+	•	Syslog
+	•	Schedules
+	•	LEDs
+	•	PDU
+	•	STOMP
+	•	UnixDomainSockets
+	•	PacketCaptureDiagnostics
+	•	SelfTestDiagnostics
+	•	IoTCapability
+	•	Reboot
+	•	FactoryReset
+	•	Standby
+My recommendation
+Instead of implementing them randomly, we’ll follow the TR-181 hierarchy exactly and add each module to TR181Model.
+The next files should be:
+	1.	router/local_agent.py
+	2.	router/time.py
+	3.	router/users.py
+	4.	router/software_modules.py
+	5.	router/periodic_statistics.py
+	6.	router/bulk_data.py
+	7.	router/security.py
+	8.	router/qos.py
+	9.	router/dhcpv6.py
+	10.	router/bridging.py
+After these, we’ll continue with the remaining objects until the full hierarchy from your screenshots is represented in the project. This approach keeps the code organized, integrates cleanly with your existing TR181Model, and uses live Raspberry Pi/Linux data wherever possible.
+Let’s continue with the next module in the USP-specific Management section from your TR-181 hierarchy.
+ 
+⸻
+ 
+router/local_agent.py
+This represents Device.LocalAgent, which is the USP Agent running on the Raspberry Pi.
+import socket
+import time
+import platform
+
+from config import (
+    DEVICE_ID,
+    BROKER,
+    PORT,
+    REQUEST_TOPIC,
+    RESPONSE_TOPIC,
+    NOTIFY_TOPIC
+)
+
+
+class LocalAgent:
+
+    def __init__(self):
+
+        self.start_time = time.time()
+
+    def get(self):
+
+        return {
+
+            "EndpointID": DEVICE_ID,
+
+            "HostName": socket.gethostname(),
+
+            "OperatingSystem": platform.system(),
+
+            "KernelVersion": platform.release(),
+
+            "Broker": BROKER,
+
+            "Port": PORT,
+
+            "Topics": {
+
+                "Request": REQUEST_TOPIC,
+
+                "Response": RESPONSE_TOPIC,
+
+                "Notify": NOTIFY_TOPIC
+
+            },
+
+            "UpTime": int(
+
+                time.time() - self.start_time
+
+            ),
+
+            "Status": "Running"
+
+        }
+
+    def restart(self):
+
+        return True
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.local_agent import LocalAgent
+ 
+⸻
+ 
+Constructor
+self.local_agent = LocalAgent()
+ 
+⸻
+ 
+Add to 
+get_model()
+"LocalAgent": self.local_agent.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "LocalAgent": {
+
+        "EndpointID": "raspberrypi01",
+
+        "HostName": "raspberrypi",
+
+        "OperatingSystem": "Linux",
+
+        "KernelVersion": "6.6.31-v8+",
+
+        "Broker": "broker.hivemq.com",
+
+        "Port": 1883,
+
+        "Topics": {
+
+            "Request": "router/raspberrypi01/request",
+
+            "Response": "router/raspberrypi01/response",
+
+            "Notify": "router/raspberrypi01/notify"
+
+        },
+
+        "UpTime": 245,
+
+        "Status": "Running"
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.LocalAgent
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+LocalAgent.get()
+
+        │
+
+        ▼
+
+Python Runtime + Config
+
+        │
+
+        ▼
+
+Return USP Agent Information
+ 
+⸻
+ 
+Updated Architecture
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+This implements the USP-specific Device.LocalAgent object shown at the top of the hierarchy in your screenshots. The next module should be router/time.py, which maps the TR-181 Device.Time object to the Raspberry Pi’s system time, timezone, and NTP synchronization status.
+Next we’ll implement router/time.py, which corresponds to Device.Time in the TR-181 model. This module retrieves the Raspberry Pi’s current time, timezone, and NTP status using Linux.
+ 
+⸻
+ 
+router/time.py
+import subprocess
+from datetime import datetime
+
+
+class Time:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "CurrentLocalTime": self.get_local_time(),
+
+            "CurrentUTCTime": self.get_utc_time(),
+
+            "TimeZone": self.get_timezone(),
+
+            "NTP": self.get_ntp_status()
+
+        }
+
+    def get_local_time(self):
+
+        return datetime.now().strftime(
+
+            "%Y-%m-%d %H:%M:%S"
+
+        )
+
+    def get_utc_time(self):
+
+        return datetime.utcnow().strftime(
+
+            "%Y-%m-%d %H:%M:%S"
+
+        )
+
+    def get_timezone(self):
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "timedatectl",
+
+                    "show",
+
+                    "-p",
+
+                    "Timezone"
+
+                ],
+
+                text=True
+
+            )
+
+            return output.strip().split("=")[1]
+
+        except:
+
+            return "Unknown"
+
+    def get_ntp_status(self):
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "timedatectl",
+
+                    "show",
+
+                    "-p",
+
+                    "NTPSynchronized"
+
+                ],
+
+                text=True
+
+            )
+
+            return output.strip().split("=")[1]
+
+        except:
+
+            return "Unknown"
+
+    def set_timezone(self, timezone):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "timedatectl",
+
+                    "set-timezone",
+
+                    timezone
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.time import Time
+ 
+⸻
+ 
+Constructor
+self.time = Time()
+ 
+⸻
+ 
+get_model()
+"Time": self.time.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "Time": {
+
+        "CurrentLocalTime": "2026-08-05 16:20:41",
+
+        "CurrentUTCTime": "2026-08-05 10:50:41",
+
+        "TimeZone": "Asia/Kolkata",
+
+        "NTP": "yes"
+
+    }
+}
+ 
+⸻
+ 
+Flow
+GET Device.Time
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+Time.get()
+
+        │
+
+        ▼
+
+timedatectl
+
+        │
+
+        ▼
+
+Linux Time Service
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next module
+The next logical module from the TR-181 hierarchy is router/users.py, which will implement Device.Users by reading the Raspberry Pi’s local user accounts (for example, from /etc/passwd) and exposing them through the TR-181 model.
+Next we’ll implement router/users.py, which corresponds to the Device.Users object shown in the TR-181 hierarchy you shared. This module reads the Raspberry Pi’s local user accounts from /etc/passwd.
+ 
+⸻
+ 
+router/users.py
+import pwd
+import subprocess
+
+
+class Users:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "User": self.get_users()
+
+        }
+
+    def get_users(self):
+
+        users = []
+
+        try:
+
+            for user in pwd.getpwall():
+
+                users.append({
+
+                    "Username": user.pw_name,
+
+                    "UID": user.pw_uid,
+
+                    "GID": user.pw_gid,
+
+                    "HomeDirectory": user.pw_dir,
+
+                    "Shell": user.pw_shell
+
+                })
+
+        except Exception as e:
+
+            users.append({
+
+                "Error": str(e)
+
+            })
+
+        return users
+
+    def add_user(self, username):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "useradd",
+
+                    username
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+
+    def delete_user(self, username):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "userdel",
+
+                    username
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.users import Users
+ 
+⸻
+ 
+Constructor
+self.users = Users()
+ 
+⸻
+ 
+Add to 
+get_model()
+"Users": self.users.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "Users": {
+
+        "User": [
+
+            {
+
+                "Username": "pi",
+
+                "UID": 1000,
+
+                "GID": 1000,
+
+                "HomeDirectory": "/home/pi",
+
+                "Shell": "/bin/bash"
+
+            },
+
+            {
+
+                "Username": "root",
+
+                "UID": 0,
+
+                "GID": 0,
+
+                "HomeDirectory": "/root",
+
+                "Shell": "/bin/bash"
+
+            }
+
+        ]
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.Users
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+Users.get()
+
+        │
+
+        ▼
+
+/etc/passwd
+
+        │
+
+        ▼
+
+Linux User Database
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next module
+The next module from the TR-181 hierarchy is router/software_modules.py. It will implement Device.SoftwareModules by reading the software installed on the Raspberry Pi (for example, using dpkg-query on Raspberry Pi OS/Debian) and exposing it through your TR-181 model. This is useful for reporting firmware, packages, and installed modules to the USP Controller.
+Next we’ll implement router/software_modules.py, which corresponds to Device.SoftwareModules in the TR-181 model. This module retrieves the software packages installed on the Raspberry Pi using dpkg-query (Debian/Raspberry Pi OS).
+ 
+⸻
+ 
+router/software_modules.py
+import subprocess
+
+
+class SoftwareModules:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "ExecutionUnit": self.get_packages()
+
+        }
+
+    def get_packages(self):
+
+        packages = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "dpkg-query",
+
+                    "-W",
+
+                    "-f=${Package}|${Version}\n"
+
+                ],
+
+                text=True
+
+            )
+
+            for line in output.splitlines():
+
+                parts = line.split("|")
+
+                if len(parts) == 2:
+
+                    packages.append({
+
+                        "Name": parts[0],
+
+                        "Version": parts[1]
+
+                    })
+
+        except Exception as e:
+
+            packages.append({
+
+                "Error": str(e)
+
+            })
+
+        return packages
+
+    def install(self, package):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "apt",
+
+                    "install",
+
+                    "-y",
+
+                    package
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+
+    def uninstall(self, package):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "apt",
+
+                    "remove",
+
+                    "-y",
+
+                    package
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.software_modules import SoftwareModules
+ 
+⸻
+ 
+Constructor
+self.software_modules = SoftwareModules()
+ 
+⸻
+ 
+Add to 
+get_model()
+"SoftwareModules": self.software_modules.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "SoftwareModules": {
+
+        "ExecutionUnit": [
+
+            {
+
+                "Name": "python3",
+
+                "Version": "3.11.2"
+
+            },
+
+            {
+
+                "Name": "mosquitto",
+
+                "Version": "2.0.18"
+
+            },
+
+            {
+
+                "Name": "openssh-server",
+
+                "Version": "9.2p1"
+
+            }
+
+        ]
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.SoftwareModules
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+SoftwareModules.get()
+
+        │
+
+        ▼
+
+dpkg-query
+
+        │
+
+        ▼
+
+Installed Packages
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next module
+The next module from the TR-181 hierarchy is router/periodic_statistics.py (Device.PeriodicStatistics). We’ll implement it using live Raspberry Pi statistics such as CPU usage, memory usage, disk usage, network I/O, and uptime so the USP Controller can periodically monitor the device without relying on hardcoded values.
+
+
+Next we’ll implement router/periodic_statistics.py, which corresponds to Device.PeriodicStatistics in your TR-181 hierarchy. This module uses live Raspberry Pi statistics via psutil.
+ 
+⸻
+ 
+router/periodic_statistics.py
+import psutil
+import time
+
+
+class PeriodicStatistics:
+
+    def __init__(self):
+
+        self.start_time = time.time()
+
+    def get(self):
+
+        return {
+
+            "CPU": self.get_cpu(),
+
+            "Memory": self.get_memory(),
+
+            "Disk": self.get_disk(),
+
+            "Network": self.get_network(),
+
+            "Uptime": self.get_uptime()
+
+        }
+
+    def get_cpu(self):
+
+        return {
+
+            "UsagePercent": psutil.cpu_percent(interval=1),
+
+            "CoreCount": psutil.cpu_count(),
+
+            "FrequencyMHz": psutil.cpu_freq().current if psutil.cpu_freq() else 0
+
+        }
+
+    def get_memory(self):
+
+        memory = psutil.virtual_memory()
+
+        return {
+
+            "Total": memory.total,
+
+            "Used": memory.used,
+
+            "Free": memory.available,
+
+            "UsagePercent": memory.percent
+
+        }
+
+    def get_disk(self):
+
+        disk = psutil.disk_usage("/")
+
+        return {
+
+            "Total": disk.total,
+
+            "Used": disk.used,
+
+            "Free": disk.free,
+
+            "UsagePercent": disk.percent
+
+        }
+
+    def get_network(self):
+
+        net = psutil.net_io_counters()
+
+        return {
+
+            "BytesSent": net.bytes_sent,
+
+            "BytesReceived": net.bytes_recv,
+
+            "PacketsSent": net.packets_sent,
+
+            "PacketsReceived": net.packets_recv
+
+        }
+
+    def get_uptime(self):
+
+        return int(
+
+            time.time() - self.start_time
+
+        )
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.periodic_statistics import PeriodicStatistics
+ 
+⸻
+ 
+Constructor
+self.periodic_statistics = PeriodicStatistics()
+ 
+⸻
+ 
+get_model()
+"PeriodicStatistics": self.periodic_statistics.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "PeriodicStatistics": {
+
+        "CPU": {
+
+            "UsagePercent": 12.5,
+
+            "CoreCount": 4,
+
+            "FrequencyMHz": 1800
+
+        },
+
+        "Memory": {
+
+            "Total": 4054839296,
+
+            "Used": 1253939200,
+
+            "Free": 2800900096,
+
+            "UsagePercent": 31.0
+
+        },
+
+        "Disk": {
+
+            "Total": 31914983424,
+
+            "Used": 9258276864,
+
+            "Free": 22656706560,
+
+            "UsagePercent": 29.0
+
+        },
+
+        "Network": {
+
+            "BytesSent": 9283628,
+
+            "BytesReceived": 18272638,
+
+            "PacketsSent": 8392,
+
+            "PacketsReceived": 10293
+
+        },
+
+        "Uptime": 7342
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.PeriodicStatistics
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+PeriodicStatistics.get()
+
+        │
+
+        ▼
+
+psutil
+
+        │
+
+        ▼
+
+CPU
+Memory
+Disk
+Network
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── PeriodicStatistics
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next module is router/bulk_data.py, which implements Device.BulkData. It will allow the Raspberry Pi to collect multiple TR-181 objects (such as DeviceInfo, IP, Routing, WiFi, and Statistics) into a single payload for bulk reporting to the USP Controller, matching the TR-181 Bulk Data object.
+
+
+Next we’ll implement router/bulk_data.py, corresponding to Device.BulkData in your TR-181 hierarchy. This module collects multiple TR-181 objects into a single report that can be published to the USP Controller.
+ 
+⸻
+ 
+router/bulk_data.py
+from datetime import datetime
+
+
+class BulkData:
+
+    def __init__(self, tr181_model=None):
+
+        self.model = tr181_model
+
+    def set_model(self, model):
+
+        self.model = model
+
+    def get(self):
+
+        return {
+
+            "Timestamp": datetime.utcnow().isoformat(),
+
+            "Report": self.build_report()
+
+        }
+
+    def build_report(self):
+
+        if self.model is None:
+
+            return {
+
+                "Error": "TR181Model not configured"
+
+            }
+
+        return {
+
+            "DeviceInfo": self.model.device_info.get(),
+
+            "IP": self.model.ip.get(),
+
+            "Routing": self.model.routing.get(),
+
+            "Ethernet": self.model.ethernet.get(),
+
+            "WiFi": self.model.wifi.get(),
+
+            "DNS": self.model.dns.get(),
+
+            "DHCPv4": self.model.dhcpv4.get(),
+
+            "NAT": self.model.nat.get(),
+
+            "Firewall": self.model.firewall.get(),
+
+            "Hosts": self.model.hosts.get(),
+
+            "Statistics": self.model.periodic_statistics.get()
+
+        }
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.bulk_data import BulkData
+ 
+⸻
+ 
+Constructor
+After creating the other objects:
+self.bulk_data = BulkData(self)
+ 
+⸻
+ 
+get_model()
+Add:
+"BulkData": self.bulk_data.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "BulkData": {
+
+        "Timestamp": "2026-08-05T10:40:25.123456",
+
+        "Report": {
+
+            "DeviceInfo": { ... },
+
+            "IP": { ... },
+
+            "Routing": { ... },
+
+            "Ethernet": { ... },
+
+            "WiFi": { ... },
+
+            "DNS": { ... },
+
+            "DHCPv4": { ... },
+
+            "NAT": { ... },
+
+            "Firewall": { ... },
+
+            "Hosts": { ... },
+
+            "Statistics": { ... }
+
+        }
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.BulkData
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+BulkData.get()
+
+        │
+
+        ▼
+
+Collect
+
+DeviceInfo
+IP
+Routing
+Ethernet
+WiFi
+DNS
+DHCPv4
+NAT
+Firewall
+Hosts
+Statistics
+
+        │
+
+        ▼
+
+Single JSON Report
+
+        │
+
+        ▼
+
+Controller
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── PeriodicStatistics
+├── BulkData
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next logical module is router/security.py (Device.Security). It will expose security-related information from the Raspberry Pi, such as:
+	•	Secure Boot status (where available)
+	•	SSH service status
+	•	Open listening ports
+	•	Authentication settings
+	•	Firewall status integration
+This makes the virtual router’s TR-181 model closer to what a real managed router reports.
+
+
+
+
+Next we’ll implement router/security.py, corresponding to Device.Security in your TR-181 model. This module gathers security-related information from the Raspberry Pi using Linux commands instead of hardcoded values.
+ 
+⸻
+ 
+router/security.py
+import subprocess
+import socket
+
+
+class Security:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Firewall": self.get_firewall(),
+
+            "SSH": self.get_ssh(),
+
+            "ListeningPorts": self.get_ports(),
+
+            "SELinux": self.get_selinux()
+
+        }
+
+    def get_firewall(self):
+
+        try:
+
+            subprocess.check_output(
+
+                [
+
+                    "sudo",
+
+                    "iptables",
+
+                    "-L"
+
+                ],
+
+                text=True
+
+            )
+
+            return {
+
+                "Enabled": True
+
+            }
+
+        except:
+
+            return {
+
+                "Enabled": False
+
+            }
+
+    def get_ssh(self):
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "systemctl",
+
+                    "is-active",
+
+                    "ssh"
+
+                ],
+
+                text=True
+
+            ).strip()
+
+            return {
+
+                "Enabled": output == "active",
+
+                "Status": output
+
+            }
+
+        except:
+
+            return {
+
+                "Enabled": False,
+
+                "Status": "Unknown"
+
+            }
+
+    def get_ports(self):
+
+        ports = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "ss",
+
+                    "-tuln"
+
+                ],
+
+                text=True
+
+            )
+
+            for line in output.splitlines():
+
+                if ":" in line:
+
+                    columns = line.split()
+
+                    if len(columns) >= 5:
+
+                        address = columns[4]
+
+                        ports.append(
+
+                            {
+
+                                "Address": address
+
+                            }
+
+                        )
+
+        except Exception as e:
+
+            ports.append(
+
+                {
+
+                    "Error": str(e)
+
+                }
+
+            )
+
+        return ports
+
+    def get_selinux(self):
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "getenforce"
+
+                ],
+
+                text=True
+
+            ).strip()
+
+            return output
+
+        except:
+
+            return "Not Installed"
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.security import Security
+ 
+⸻
+ 
+Constructor
+self.security = Security()
+ 
+⸻
+ 
+Add to 
+get_model()
+"Security": self.security.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "Security": {
+
+        "Firewall": {
+
+            "Enabled": true
+
+        },
+
+        "SSH": {
+
+            "Enabled": true,
+
+            "Status": "active"
+
+        },
+
+        "ListeningPorts": [
+
+            {
+
+                "Address": "0.0.0.0:22"
+
+            },
+
+            {
+
+                "Address": "0.0.0.0:1883"
+
+            }
+
+        ],
+
+        "SELinux": "Not Installed"
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.Security
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+Security.get()
+
+        │
+
+        ▼
+
+iptables
+systemctl
+ss
+getenforce
+
+        │
+
+        ▼
+
+Linux Security Information
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── PeriodicStatistics
+├── BulkData
+├── Security
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next module is router/qos.py (Device.QoS). It will expose the Raspberry Pi’s Quality of Service configuration by reading Linux traffic control (tc) queues, classes, and filters, allowing the USP Controller to monitor QoS configuration and traffic shaping.
+
+
+
+Next we’ll implement router/qos.py, corresponding to Device.QoS in the TR-181 model. This module reads Linux Traffic Control (tc) information from the Raspberry Pi to expose queueing disciplines, classes, and filters.
+ 
+⸻
+ 
+router/qos.py
+import subprocess
+
+
+class QoS:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Queue": self.get_qdisc(),
+
+            "Class": self.get_classes(),
+
+            "Filter": self.get_filters()
+
+        }
+
+    def get_qdisc(self):
+
+        queues = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "tc",
+
+                    "qdisc",
+
+                    "show"
+
+                ],
+
+                text=True
+
+            )
+
+            for line in output.splitlines():
+
+                queues.append({
+
+                    "Queue": line
+
+                })
+
+        except Exception as e:
+
+            queues.append({
+
+                "Error": str(e)
+
+            })
+
+        return queues
+
+    def get_classes(self):
+
+        classes = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "tc",
+
+                    "class",
+
+                    "show"
+
+                ],
+
+                text=True
+
+            )
+
+            for line in output.splitlines():
+
+                classes.append({
+
+                    "Class": line
+
+                })
+
+        except Exception as e:
+
+            classes.append({
+
+                "Error": str(e)
+
+            })
+
+        return classes
+
+    def get_filters(self):
+
+        filters = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "tc",
+
+                    "filter",
+
+                    "show"
+
+                ],
+
+                text=True
+
+            )
+
+            for line in output.splitlines():
+
+                filters.append({
+
+                    "Filter": line
+
+                })
+
+        except Exception as e:
+
+            filters.append({
+
+                "Error": str(e)
+
+            })
+
+        return filters
+
+    def add_qdisc(self, interface):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "tc",
+
+                    "qdisc",
+
+                    "add",
+
+                    "dev",
+
+                    interface,
+
+                    "root",
+
+                    "pfifo_fast"
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+
+    def delete_qdisc(self, interface):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "tc",
+
+                    "qdisc",
+
+                    "del",
+
+                    "dev",
+
+                    interface,
+
+                    "root"
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.qos import QoS
+ 
+⸻
+ 
+Constructor
+self.qos = QoS()
+ 
+⸻
+ 
+Add to 
+get_model()
+"QoS": self.qos.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "QoS": {
+
+        "Queue": [
+
+            {
+
+                "Queue": "qdisc fq_codel 0: dev wlan0 root refcnt 2"
+
+            }
+
+        ],
+
+        "Class": [
+
+            {
+
+                "Class": "class htb 1:1 root rate 100Mbit"
+
+            }
+
+        ],
+
+        "Filter": [
+
+            {
+
+                "Filter": "filter parent 1: protocol ip"
+
+            }
+
+        ]
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.QoS
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+QoS.get()
+
+        │
+
+        ▼
+
+tc qdisc
+tc class
+tc filter
+
+        │
+
+        ▼
+
+Linux Traffic Control
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── PeriodicStatistics
+├── BulkData
+├── Security
+├── QoS
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next module should be router/dhcpv6.py, which will implement the Device.DHCPv6 object by reading IPv6 DHCP client/server information from the Raspberry Pi. This complements the existing DHCPv4 module and is the next networking component in the TR-181 hierarchy.
+
+
+
+Next we’ll implement router/dhcpv6.py, which corresponds to Device.DHCPv6 in the TR-181 hierarchy. This module reads IPv6 DHCP client/server information from the Raspberry Pi without hardcoded values.
+ 
+⸻
+ 
+router/dhcpv6.py
+import os
+import subprocess
+
+
+class DHCPv6:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Client": self.get_client(),
+
+            "Server": self.get_server()
+
+        }
+
+    def get_client(self):
+
+        clients = []
+
+        lease_paths = [
+
+            "/var/lib/dhcp",
+
+            "/var/lib/NetworkManager",
+
+            "/var/lib/dhcpcd5"
+
+        ]
+
+        for path in lease_paths:
+
+            if os.path.exists(path):
+
+                clients.append({
+
+                    "LeasePath": path,
+
+                    "Available": True
+
+                })
+
+        return clients
+
+    def get_server(self):
+
+        servers = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "ps",
+
+                    "-ef"
+
+                ],
+
+                text=True
+
+            )
+
+            if "dhcpd" in output:
+
+                servers.append({
+
+                    "Service": "dhcpd",
+
+                    "Status": "Running"
+
+                })
+
+            if "dnsmasq" in output:
+
+                servers.append({
+
+                    "Service": "dnsmasq",
+
+                    "Status": "Running"
+
+                })
+
+        except Exception as e:
+
+            servers.append({
+
+                "Error": str(e)
+
+            })
+
+        return servers
+
+    def renew(self, interface):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "dhclient",
+
+                    "-6",
+
+                    "-r",
+
+                    interface
+
+                ],
+
+                check=True
+
+            )
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "dhclient",
+
+                    "-6",
+
+                    interface
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.dhcpv6 import DHCPv6
+ 
+⸻
+ 
+Constructor
+self.dhcpv6 = DHCPv6()
+ 
+⸻
+ 
+Add to 
+get_model()
+"DHCPv6": self.dhcpv6.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "DHCPv6": {
+
+        "Client": [
+
+            {
+
+                "LeasePath": "/var/lib/dhcpcd5",
+
+                "Available": true
+
+            }
+
+        ],
+
+        "Server": [
+
+            {
+
+                "Service": "dnsmasq",
+
+                "Status": "Running"
+
+            }
+
+        ]
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.DHCPv6
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+DHCPv6.get()
+
+        │
+
+        ▼
+
+dhclient -6
+dnsmasq
+dhcpd
+
+        │
+
+        ▼
+
+Linux DHCPv6
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── PeriodicStatistics
+├── BulkData
+├── Security
+├── QoS
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── DHCPv6
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next module is router/bridging.py, which implements Device.Bridging. It will discover Linux bridge interfaces (bridge, brctl) and their member ports, allowing your Raspberry Pi virtual router to expose bridge configuration through the TR-181 model.
+
+Next we’ll implement router/bridging.py, corresponding to Device.Bridging in the TR-181 hierarchy. This module discovers Linux bridge interfaces and their member ports using the bridge command.
+ 
+⸻
+ 
+router/bridging.py
+import json
+import subprocess
+
+
+class Bridging:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Bridge": self.get_bridges(),
+
+            "Port": self.get_ports()
+
+        }
+
+    def get_bridges(self):
+
+        bridges = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "ip",
+
+                    "-j",
+
+                    "link"
+
+                ],
+
+                text=True
+
+            )
+
+            interfaces = json.loads(output)
+
+            for interface in interfaces:
+
+                if interface.get("linkinfo", {}).get("info_kind") == "bridge":
+
+                    bridges.append({
+
+                        "Name": interface.get("ifname"),
+
+                        "Index": interface.get("ifindex"),
+
+                        "State": interface.get("operstate"),
+
+                        "MTU": interface.get("mtu"),
+
+                        "MACAddress": interface.get("address")
+
+                    })
+
+        except Exception as e:
+
+            bridges.append({
+
+                "Error": str(e)
+
+            })
+
+        return bridges
+
+    def get_ports(self):
+
+        ports = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "bridge",
+
+                    "link"
+
+                ],
+
+                text=True
+
+            )
+
+            current = {}
+
+            for line in output.splitlines():
+
+                line = line.strip()
+
+                if ":" in line:
+
+                    if current:
+
+                        ports.append(current)
+
+                    parts = line.split(":")
+
+                    current = {
+
+                        "Interface": parts[1].strip()
+
+                    }
+
+                elif "master" in line:
+
+                    words = line.split()
+
+                    if "master" in words:
+
+                        current["Bridge"] = words[
+
+                            words.index("master") + 1
+
+                        ]
+
+            if current:
+
+                ports.append(current)
+
+        except Exception as e:
+
+            ports.append({
+
+                "Error": str(e)
+
+            })
+
+        return ports
+
+    def create_bridge(self, bridge):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "ip",
+
+                    "link",
+
+                    "add",
+
+                    bridge,
+
+                    "type",
+
+                    "bridge"
+
+                ],
+
+                check=True
+
+            )
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "ip",
+
+                    "link",
+
+                    "set",
+
+                    bridge,
+
+                    "up"
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+
+    def delete_bridge(self, bridge):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "ip",
+
+                    "link",
+
+                    "delete",
+
+                    bridge,
+
+                    "type",
+
+                    "bridge"
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.bridging import Bridging
+ 
+⸻
+ 
+Constructor
+self.bridging = Bridging()
+ 
+⸻
+ 
+get_model()
+"Bridging": self.bridging.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "Bridging": {
+
+        "Bridge": [
+
+            {
+
+                "Name": "br0",
+
+                "Index": 5,
+
+                "State": "UP",
+
+                "MTU": 1500,
+
+                "MACAddress": "dc:a6:32:ab:cd:ef"
+
+            }
+
+        ],
+
+        "Port": [
+
+            {
+
+                "Interface": "eth0",
+
+                "Bridge": "br0"
+
+            },
+
+            {
+
+                "Interface": "wlan0",
+
+                "Bridge": "br0"
+
+            }
+
+        ]
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.Bridging
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+Bridging.get()
+
+        │
+
+        ▼
+
+ip -j link
+bridge link
+
+        │
+
+        ▼
+
+Linux Bridge Configuration
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── PeriodicStatistics
+├── BulkData
+├── Security
+├── QoS
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── Bridging
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── DHCPv6
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next logical module is router/ppp.py, which implements Device.PPP. It will detect PPP interfaces (such as ppp0), report connection status, IP addressing, and statistics, which is useful if your Raspberry Pi connects to an ISP or modem using PPPoE.
+Next we’ll implement router/ppp.py, corresponding to Device.PPP in the TR-181 hierarchy. This module discovers PPP interfaces (such as PPPoE) from the Raspberry Pi.
+ 
+⸻
+ 
+router/ppp.py
+import json
+import subprocess
+
+
+class PPP:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Interface": self.get_interfaces()
+
+        }
+
+    def get_interfaces(self):
+
+        interfaces = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "ip",
+
+                    "-j",
+
+                    "addr"
+
+                ],
+
+                text=True
+
+            )
+
+            data = json.loads(output)
+
+            for interface in data:
+
+                name = interface.get("ifname", "")
+
+                if name.startswith("ppp"):
+
+                    info = {
+
+                        "Name": name,
+
+                        "Index": interface.get("ifindex"),
+
+                        "State": interface.get("operstate"),
+
+                        "MTU": interface.get("mtu"),
+
+                        "Addresses": []
+
+                    }
+
+                    for addr in interface.get("addr_info", []):
+
+                        info["Addresses"].append(
+
+                            {
+
+                                "Family": addr.get("family"),
+
+                                "IPAddress": addr.get("local"),
+
+                                "PrefixLength": addr.get("prefixlen")
+
+                            }
+
+                        )
+
+                    interfaces.append(info)
+
+        except Exception as e:
+
+            interfaces.append(
+
+                {
+
+                    "Error": str(e)
+
+                }
+
+            )
+
+        return interfaces
+
+    def connect(self, provider):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "pon",
+
+                    provider
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+
+    def disconnect(self, provider):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "poff",
+
+                    provider
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.ppp import PPP
+ 
+⸻
+ 
+Constructor
+self.ppp = PPP()
+ 
+⸻
+ 
+get_model()
+"PPP": self.ppp.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "PPP": {
+
+        "Interface": [
+
+            {
+
+                "Name": "ppp0",
+
+                "Index": 7,
+
+                "State": "UP",
+
+                "MTU": 1492,
+
+                "Addresses": [
+
+                    {
+
+                        "Family": "inet",
+
+                        "IPAddress": "100.64.10.12",
+
+                        "PrefixLength": 32
+
+                    }
+
+                ]
+
+            }
+
+        ]
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.PPP
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+PPP.get()
+
+        │
+
+        ▼
+
+ip -j addr
+
+        │
+
+        ▼
+
+PPP Interfaces
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── PeriodicStatistics
+├── BulkData
+├── Security
+├── QoS
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── Bridging
+├── PPP
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── DHCPv6
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next module is router/neighbor_discovery.py, which implements Device.NeighborDiscovery. It will read the Raspberry Pi’s IPv6 neighbor table (ip -6 neigh) and expose discovered IPv6 neighbors through the TR-181 model, complementing the IPv4 Hosts module.
+Next we’ll implement router/neighbor_discovery.py, corresponding to Device.NeighborDiscovery in the TR-181 hierarchy. This module discovers IPv6 neighbors from the Raspberry Pi using the Linux ip -6 neigh command.
+ 
+⸻
+ 
+router/neighbor_discovery.py
+import json
+import subprocess
+
+
+class NeighborDiscovery:
+
+    def __init__(self):
+        pass
+
+    def get(self):
+
+        return {
+
+            "Neighbor": self.get_neighbors()
+
+        }
+
+    def get_neighbors(self):
+
+        neighbors = []
+
+        try:
+
+            output = subprocess.check_output(
+
+                [
+
+                    "ip",
+
+                    "-j",
+
+                    "-6",
+
+                    "neigh"
+
+                ],
+
+                text=True
+
+            )
+
+            data = json.loads(output)
+
+            for neighbor in data:
+
+                neighbors.append(
+
+                    {
+
+                        "IPAddress": neighbor.get("dst"),
+
+                        "MACAddress": neighbor.get("lladdr", ""),
+
+                        "Interface": neighbor.get("dev"),
+
+                        "State": neighbor.get("state")
+
+                    }
+
+                )
+
+        except Exception as e:
+
+            neighbors.append(
+
+                {
+
+                    "Error": str(e)
+
+                }
+
+            )
+
+        return neighbors
+
+    def flush(self):
+
+        try:
+
+            subprocess.run(
+
+                [
+
+                    "sudo",
+
+                    "ip",
+
+                    "-6",
+
+                    "neigh",
+
+                    "flush",
+
+                    "all"
+
+                ],
+
+                check=True
+
+            )
+
+            return True
+
+        except:
+
+            return False
+ 
+⸻
+ 
+Update 
+tr181_model.py
+Import
+from router.neighbor_discovery import NeighborDiscovery
+ 
+⸻
+ 
+Constructor
+self.neighbor_discovery = NeighborDiscovery()
+ 
+⸻
+ 
+get_model()
+"NeighborDiscovery": self.neighbor_discovery.get(),
+ 
+⸻
+ 
+Example Output
+{
+    "NeighborDiscovery": {
+
+        "Neighbor": [
+
+            {
+
+                "IPAddress": "fe80::4e5f:abcd:1234:5678",
+
+                "MACAddress": "dc:a6:32:12:34:56",
+
+                "Interface": "wlan0",
+
+                "State": "REACHABLE"
+
+            },
+
+            {
+
+                "IPAddress": "fe80::20c:29ff:feaa:bbcc",
+
+                "MACAddress": "00:0c:29:aa:bb:cc",
+
+                "Interface": "eth0",
+
+                "State": "STALE"
+
+            }
+
+        ]
+
+    }
+
+}
+ 
+⸻
+ 
+Flow
+GET Device.NeighborDiscovery
+
+        │
+
+        ▼
+
+USP Agent
+
+        │
+
+        ▼
+
+TR181Model
+
+        │
+
+        ▼
+
+NeighborDiscovery.get()
+
+        │
+
+        ▼
+
+ip -j -6 neigh
+
+        │
+
+        ▼
+
+Linux IPv6 Neighbor Table
+
+        │
+
+        ▼
+
+JSON Response
+ 
+⸻
+ 
+Updated TR-181 Model
+TR181Model
+
+│
+
+├── LocalAgent
+├── DeviceInfo
+├── ManagementServer
+├── Services
+├── Time
+├── Users
+├── SoftwareModules
+├── PeriodicStatistics
+├── BulkData
+├── Security
+├── QoS
+├── InterfaceStack
+├── Ethernet
+├── WiFi
+├── Bridging
+├── PPP
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── DHCPv6
+├── NeighborDiscovery
+├── NAT
+├── Firewall
+└── Hosts
+ 
+⸻
+ 
+Next Module
+The next module is router/router_advertisement.py (Device.RouterAdvertisement). It will expose IPv6 Router Advertisement (RA) configuration by reading Linux settings (sysctl, radvd where present), allowing the USP Controller to monitor IPv6 advertisement status on the Raspberry Pi.
