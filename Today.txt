@@ -1,0 +1,948 @@
+Tr181
+
+
+TR181_SAMPLE_DATA = {
+    "Device": {
+
+        "LocalAgent": {
+
+            "Controller": {
+                "Enable": True,
+                "EndpointID": "controller-001",
+                "Alias": "PrimaryController",
+                "AssignedRole": "Administrator",
+                "Status": "Connected",
+                "PeriodicNotifInterval": 300
+            },
+
+            "MTP": {
+                "Protocol": "MQTT",
+                "Enable": True,
+                "Broker": "mqtt.airtel.in",
+                "Port": 8883,
+                "KeepAliveTime": 60,
+                "ClientID": "usp-agent-001",
+                "Status": "Connected"
+            },
+
+            "Subscription": {
+                "SubscriptionID": "SUB001",
+                "Enable": True,
+                "NotificationType": "ValueChange"
+            },
+
+            "Request": {
+                "RequestID": "REQ001",
+                "Status": "Completed"
+            },
+
+            "Certificate": {
+                "CertificateID": "CERT001",
+                "Issuer": "AirtelCA"
+            },
+
+            "ControllerTrust": {
+                "TrustRole": "Administrator",
+                "CertificateRef": "CERT001"
+            },
+
+            "Monitor": {
+                "Enable": True,
+                "Target": "Device.DeviceInfo"
+            },
+
+            "Threshold": {
+                "CPUUsage": 80,
+                "MemoryUsage": 85
+            },
+
+            "Watchdog": {
+                "Enable": True,
+                "Timeout": 60,
+                "LastCheck": "2026-08-05T10:00:00Z"
+            }
+        },
+
+        "Services": {
+
+            "VoiceService": {
+                "Enable": True,
+                "Status": "Running"
+            },
+
+            "StorageService": {
+                "Enable": True,
+                "Status": "Running"
+            },
+
+            "UserService": {
+                "Enable": True,
+                "Status": "Running"
+            },
+
+            "ApplicationService": {
+                "Enable": True,
+                "Status": "Running"
+            }
+        },
+
+        "DeviceInfo": {
+
+            "Manufacturer": "TP-Link",
+            "ManufacturerOUI": "A1B2C3",
+            "ModelName": "Archer AX55",
+            "Description": "WiFi 6 Router",
+            "ProductClass": "BroadbandGateway",
+            "SerialNumber": "TPL123456789",
+            "HardwareVersion": "V1",
+            "SoftwareVersion": "1.0.5",
+            "BootLoaderVersion": "2.0",
+            "ModemFirmwareVersion": "3.1.8",
+            "AdditionalHardwareVersion": "RevA",
+            "AdditionalSoftwareVersion": "Patch01",
+            "SpecVersion": "TR-181 Issue 2",
+            "ProvisioningCode": "AIRTEL001",
+            "UpTime": 864000,
+            "FirstUseDate": "2026-01-01T00:00:00Z",
+            "DeviceLog": "System Operating Normally",
+            "VendorConfigFile": "airtel_default.cfg",
+            "SupportedDataModel": "TR-181,TR-369",
+
+            "MemoryStatus": {
+                "Total": 2048,
+                "Free": 1024,
+                "Available": 1500
+            },
+
+            "ProcessStatus": {
+                "RunningProcesses": 132,
+                "CPUUsage": 28
+            },
+
+            "TemperatureStatus": {
+                "CPU": 54
+            },
+
+            "NetworkProperties": {
+                "HostName": "AirtelRouter01",
+                "OperatingSystem": "OpenWRT",
+                "Platform": "ARM64",
+                "DomainName": "home.local"
+            },
+
+            "Processor": {
+                "Model": "ARM Cortex-A53",
+                "Count": 4,
+                "Architecture": "64-bit"
+            },
+
+            "VendorLogFile": "vendor.log",
+
+            "Location": "Bengaluru",
+
+            "ProxierInfo": {
+                "Enable": False
+            }
+        },
+
+        "UserInterface": {
+
+            "HTTPAccess": {
+                "Enable": True,
+                "Port": 80,
+                "Status": "Enabled"
+            },
+
+            "RemoteAccess": {
+                "Enable": True,
+                "Port": 443
+            },
+
+            "Messages": {
+                "WelcomeMessage": "Welcome to Airtel Fiber"
+            }
+        },
+
+        "LANConfigSecurity": {
+            "ConfigPassword": "admincfg",
+            "Password": "******",
+            "MaxLoginAttempts": 5,
+            "LockoutTime": 300,
+            "Enable": True
+        },
+
+        "Hosts": {
+
+            "Host": {
+                "HostName": "Laptop-HP",
+                "IPAddress": "192.168.1.100",
+                "MACAddress": "AA:BB:CC:DD:EE:FF",
+                "Active": True,
+                "Layer1Interface": "WiFi",
+                "IPv4Address": "192.168.1.100",
+                "IPv6Address": "2401:4900::100",
+                "LeaseTimeRemaining": 3600,
+                "AddressSource": "DHCP"
+            }
+        },
+
+        "Users": {
+
+            "User": {
+                "Username": "admin",
+                "Enable": True,
+                "Password": "******",
+                "Status": "Active"
+            },
+
+            "Group": {
+                "Name": "Administrators",
+                "Description": "Full Access"
+            },
+
+            "Role": {
+                "Name": "Root",
+                "Permission": "ReadWrite"
+            }
+        },
+
+        "SmartCardReaders": {
+
+            "SmartCardReader": {
+                "Enable": True,
+                "Status": "Ready",
+                "CardPresent": False,
+                "ReaderName": "Reader01"
+            }
+        },
+
+        "PeriodicStatistics": {
+
+            "SampleSet": {
+                "ReportSamples": 24,
+                "SampleInterval": 300,
+                "TimeReference": "UTC",
+                "Status": "Enabled"
+            }
+        },
+
+        "BulkData": {
+
+            "Profile": {
+                "Enable": True,
+                "Protocol": "HTTPS",
+                "URL": "https://telemetry.airtel.in",
+                "ReportingInterval": 900,
+                "Username": "telemetryuser"
+            }
+        },        "SoftwareModules": {
+
+            "ExecEnvClass": {
+                "Type": "Container"
+            },
+
+            "ExecEnv": {
+                "Name": "Docker",
+                "Enable": True,
+                "Status": "Running",
+                "Version": "24.0"
+            },
+
+            "DeploymentUnit": {
+                "UUID": "DU001",
+                "Name": "USP Agent",
+                "Version": "1.0"
+            },
+
+            "ExecutionUnit": {
+                "Name": "USPService",
+                "Status": "Running",
+                "Vendor": "BroadbandForum"
+            }
+        },
+
+        "InterfaceStack": {
+            "HigherLayer": "IP.Interface.1",
+            "LowerLayer": "Ethernet.Interface.1"
+        },
+
+        "DSL": {
+
+            "Line": {
+                "Status": "Up",
+                "UpstreamRate": 20000,
+                "DownstreamRate": 100000
+            },
+
+            "Channel": {
+                "ChannelID": 1
+            },
+
+            "BondingGroup": {
+                "GroupID": 1
+            },
+
+            "Diagnostics": {
+                "LastResult": "Pass"
+            }
+        },
+
+        "FAST": {
+
+            "Line": {
+                "Status": "Up",
+                "LinkRate": 500000,
+                "SNR": 35
+            }
+        },
+
+        "Optical": {
+
+            "Interface": {
+                "Status": "Up",
+                "RXPower": -18.5,
+                "TXPower": 2.1
+            }
+        },
+
+        "Cellular": {
+
+            "Interface": {
+                "Status": "Connected",
+                "IMEI": "356789123456789",
+                "IMSI": "404999123456789",
+                "SignalStrength": -70,
+                "NetworkType": "5G"
+            },
+
+            "AccessPoint": {
+                "APN": "internet",
+                "Username": "user",
+                "Password": "pass"
+            }
+        },
+
+        "ATM": {
+
+            "Link": {
+                "VPI": 0,
+                "VCI": 35,
+                "Status": "Up"
+            },
+
+            "Diagnostics": {
+                "Result": "Pass"
+            }
+        },
+
+        "DOCSIS": {
+
+            "Downstream": {
+                "Frequency": "555MHz"
+            },
+
+            "Upstream": {
+                "Frequency": "35MHz"
+            },
+
+            "DownstreamChannel": {
+                "ChannelID": 1
+            },
+
+            "UpstreamChannel": {
+                "ChannelID": 1
+            },
+
+            "Interface": {
+                "Status": "Up"
+            },
+
+            "SpectrumAnalysis": {
+                "NoiseLevel": "-45dBm"
+            }
+        },
+
+        "PTM": {
+
+            "Link": {
+                "Status": "Up",
+                "MACAddress": "00:11:22:33:44:55"
+            }
+        },
+
+        "Ethernet": {
+
+            "Interface": {
+                "Enable": True,
+                "Status": "Up",
+                "Alias": "LAN1",
+                "Name": "eth0",
+                "LastChange": 1000,
+                "LowerLayers": "Port1",
+                "MACAddress": "00:11:22:33:44:55",
+                "MTU": 1500,
+                "MaxBitRate": 1000,
+                "DuplexMode": "Full",
+
+                "Stats": {
+                    "BytesSent": 24567890,
+                    "BytesReceived": 98765432
+                }
+            },
+
+            "Link": {
+                "Status": "Up"
+            },
+
+            "VLANTermination": {
+                "VLANID": 100
+            },
+
+            "RMONStats": {
+                "Packets": 154000
+            },
+
+            "WoL": {
+                "Enable": True
+            },
+
+            "LAG": {
+                "Enable": False
+            }
+        },
+
+        "USB": {
+
+            "Interface": {
+                "Enable": True,
+                "Status": "Up",
+                "VendorID": "0x1234",
+                "ProductID": "0x5678",
+                "SerialNumber": "USB001",
+                "Speed": "5Gbps"
+            },
+
+            "Port": {
+                "PortNumber": 1,
+                "PowerStatus": "Enabled"
+            }
+        },
+
+        "HPNA": {
+
+            "Interface": {
+                "Enable": True,
+                "Status": "Up",
+                "MACAddress": "00:11:22:AA:BB:CC",
+                "DataRate": 320
+            }
+        },
+
+        "MoCA": {
+
+            "Interface": {
+                "Enable": True,
+                "Status": "Operational",
+                "NodeID": 1,
+                "Frequency": "1150MHz",
+                "TxRate": 1000,
+                "RxRate": 950
+            }
+        },
+
+        "Ghn": {
+
+            "Interface": {
+                "Enable": True,
+                "Status": "Up",
+                "DomainID": "GHN01",
+                "DeviceType": "Coordinator"
+            }
+        },
+
+        "HomePlug": {
+
+            "Interface": {
+                "Enable": True,
+                "Status": "Operational",
+                "NetworkID": "HPAV01",
+                "Rate": 500
+            }
+        },
+
+        "UPA": {
+
+            "Interface": {
+                "Enable": True,
+                "Status": "Connected",
+                "Rate": 200
+            }
+        },        "WiFi": {
+
+            "Radio": {
+                "Enable": True,
+                "Status": "Up",
+                "Channel": 36,
+                "TransmitPower": 100,
+                "OperatingFrequencyBand": "5GHz",
+                "AutoChannelEnable": True,
+                "OperatingStandards": "802.11ax"
+            },
+
+            "SSID": {
+                "Enable": True,
+                "Status": "Up",
+                "SSID": "AirtelFiber",
+                "BSSID": "AA:BB:CC:11:22:33"
+            },
+
+            "AccessPoint": {
+                "Security": "WPA3",
+                "WPS": False,
+                "AssociatedDevice": 12
+            },
+
+            "EndPoint": {
+                "Status": "Connected"
+            },
+
+            "MultiAP": {
+                "Enable": True,
+                "Backhaul": True,
+                "Fronthaul": True
+            }
+        },
+
+        "ZigBee": {
+
+            "Interface": {
+                "PANID": "0x1234"
+            },
+
+            "ZDO": {
+                "Status": "Active"
+            },
+
+            "Discovery": {
+                "DevicesFound": 8
+            }
+        },
+
+        "Bridging": {
+
+            "Bridge": {
+                "BridgeID": 1
+            },
+
+            "Filter": {
+                "Status": "Enabled"
+            },
+
+            "ProviderBridge": {
+                "Type": "802.1ad"
+            }
+        },
+
+        "PPP": {
+
+            "Interface": {
+                "Username": "broadbanduser",
+                "Password": "******",
+                "Status": "Up",
+                "ConnectionStatus": "Connected"
+            }
+        },
+
+        "IP": {
+
+            "Interface": {
+                "Enable": True,
+                "Status": "Up",
+                "Alias": "WANIP",
+                "Name": "ip0",
+                "IPv4Enable": True,
+                "IPv6Enable": True,
+                "LowerLayers": "PPP.Interface.1",
+
+                "Stats": {
+                    "PacketsSent": 500000,
+                    "PacketsReceived": 600000
+                }
+            },
+
+            "IPv4Address": {
+                "Address": "49.205.10.25",
+                "SubnetMask": "255.255.255.0",
+                "Scope": "Global",
+                "Status": "Preferred"
+            },
+
+            "IPv6Address": {
+                "Address": "2401:4900::25",
+                "Prefix": 64,
+                "Scope": "Global",
+                "Status": "Preferred"
+            },
+
+            "ActivePort": {
+                "Name": "WAN1"
+            },
+
+            "Diagnostics": {
+                "PingResult": "Pass"
+            }
+        },
+
+        "GRE": {
+
+            "Tunnel": {
+                "Enable": True,
+                "Status": "Up",
+                "Endpoint": "10.10.10.1"
+            },
+
+            "Filter": {
+                "Status": "Enabled"
+            }
+        },
+
+        "L2TPv3": {
+
+            "Tunnel": {
+                "Status": "Up"
+            },
+
+            "Filter": {
+                "Status": "Enabled"
+            }
+        },
+
+        "VXLAN": {
+
+            "Tunnel": "Tunnel1",
+            "VNI": 5000,
+            "RemoteIP": "172.16.10.5"
+        },
+
+        "MAP": {
+
+            "Domain": {
+                "Rule": "Rule1",
+                "Status": "Enabled"
+            }
+        },
+
+        "IEEE1905": {
+
+            "AL": {
+                "DeviceID": "1905-Device-01",
+                "Status": "Active"
+            }
+        },
+
+        "FWE": {
+
+            "Link": {
+                "Status": "Active"
+            }
+        },
+
+        "Logical": {
+
+            "Interface": {
+                "Name": "Loopback0",
+                "Status": "Up"
+            }
+        },
+
+        "XPON": {
+
+            "ONU": {
+                "SerialNumber": "ALCL12345678",
+                "Status": "Operational",
+                "Vendor": "Nokia"
+            }
+        },
+
+        "Boot": {
+
+            "BootCount": 55,
+            "LastBootReason": "PowerOn",
+            "LastBootTime": "2026-08-05T08:00:00Z",
+            "FirmwareBootVersion": "1.0.5"
+        },        "ScheduleTimer": {
+
+            "Timer": {
+                "Enable": True,
+                "Alias": "DailyBackup",
+                "Status": "Enabled",
+                "StartTime": "02:00:00",
+                "EndTime": "03:00:00",
+                "Interval": 86400
+            }
+        },
+
+        "Time": {
+
+            "Enable": True,
+            "Status": "Synchronized",
+            "CurrentLocalTime": "2026-08-06T16:00:00",
+            "CurrentUTCTime": "2026-08-06T10:30:00Z",
+            "LocalTimeZone": "Asia/Kolkata",
+            "NTPServer1": "time.google.com",
+            "NTPServer2": "pool.ntp.org",
+            "NTPStatus": "Synchronized"
+        },
+
+        "LLDP": {
+
+            "Enable": True,
+
+            "Interface": {
+                "Name": "eth0",
+                "Status": "Operational",
+                "ChassisID": "AA:BB:CC:DD:EE:FF",
+                "PortID": "eth0"
+            },
+
+            "Neighbor": {
+                "DeviceName": "CoreSwitch01",
+                "ManagementAddress": "192.168.1.254"
+            }
+        },
+
+        "IPsec": {
+
+            "Enable": True,
+
+            "Tunnel": {
+                "TunnelID": 1,
+                "Status": "Up",
+                "LocalEndpoint": "49.205.10.25",
+                "RemoteEndpoint": "52.10.15.20",
+                "Encryption": "AES256",
+                "Authentication": "SHA256"
+            }
+        },
+
+        "CaptivePortal": {
+
+            "Enable": False,
+
+            "Portal": {
+                "URL": "https://login.airtel.in",
+                "Authentication": "Radius",
+                "Status": "Disabled"
+            }
+        },
+
+        "Routing": {
+
+            "Router": {
+                "Enable": True,
+                "Status": "Running"
+            },
+
+            "IPv4Forwarding": {
+                "Destination": "0.0.0.0/0",
+                "Gateway": "192.168.1.1",
+                "Interface": "eth0",
+                "Metric": 10
+            },
+
+            "IPv6Forwarding": {
+                "Destination": "::/0",
+                "Gateway": "fe80::1",
+                "Interface": "eth0",
+                "Metric": 10
+            },
+
+            "RIP": {
+                "Enable": False
+            },
+
+            "RouteInformation": {
+                "TotalRoutes": 18,
+                "DefaultRoute": "192.168.1.1"
+            }
+        },
+
+        "NeighborDiscovery": {
+
+            "Enable": True,
+
+            "InterfaceSetting": {
+                "Interface": "eth0",
+                "RouterAdvertisements": True,
+                "ReachableTime": 30000,
+                "RetransTimer": 1000
+            }
+        },
+
+        "DNS": {
+
+            "Client": {
+                "Enable": True,
+                "Server1": "8.8.8.8",
+                "Server2": "1.1.1.1",
+                "Status": "Running"
+            },
+
+            "Relay": {
+                "Enable": False
+            },
+
+            "Diagnostics": {
+                "LookupResult": "Success"
+            }
+        },
+
+        "NAT": {
+
+            "Enable": True,
+
+            "InterfaceSetting": {
+                "Interface": "eth0",
+                "NATEnabled": True
+            },
+
+            "PortMapping": {
+                "ExternalPort": 8080,
+                "InternalPort": 80,
+                "Protocol": "TCP",
+                "InternalClient": "192.168.1.100",
+                "Enable": True
+            },
+
+            "PortTrigger": {
+                "TriggerPort": 3074,
+                "OpenPort": 3074,
+                "Protocol": "UDP"
+            },
+
+            "PCP": {
+                "Enable": False
+            }
+        }
+
+    }
+}
+
+
+
+from tr181_defaults import TR181_SAMPLE_DATA
+
+
+class TR181Model:
+
+    def __init__(self):
+
+        self.data = TR181_SAMPLE_DATA
+
+    def get_model(self):
+
+        return self.data["Device"]
+
+    def get_parameter(self, path):
+
+        try:
+
+            if path.startswith("Device."):
+                path = path[len("Device."):]
+
+            node = self.data["Device"]
+
+            for part in path.split("."):
+
+                node = node[part]
+
+            return node
+
+        except Exception:
+
+            return {
+                "Error": "Parameter not found"
+            }
+
+    def set_parameter(self, path, value):
+
+        try:
+
+            if path.startswith("Device."):
+                path = path[len("Device."):]
+
+            keys = path.split(".")
+
+            node = self.data["Device"]
+
+            for key in keys[:-1]:
+
+                node = node[key]
+
+            node[keys[-1]] = value
+
+            return {
+
+                "Status": "Success",
+
+                "Parameter": path,
+
+                "Value": value
+
+            }
+
+        except Exception as e:
+
+            return {
+
+                "Status": "Failed",
+
+                "Error": str(e)
+
+            }
+
+    def operate(self, command, arguments=None):
+
+        if command == "Reboot":
+
+            return {
+
+                "Status": "Success",
+
+                "Message": "Device Reboot Simulated"
+
+            }
+
+        elif command == "FactoryReset":
+
+            return {
+
+                "Status": "Success",
+
+                "Message": "Factory Reset Simulated"
+
+            }
+
+        elif command == "Ping":
+
+            return {
+
+                "Status": "Success",
+
+                "Target": arguments,
+
+                "Result": "Reachable"
+
+            }
+
+        return {
+
+            "Status": "Unsupported",
+
+            "Command": command
+
+        }
+
+    def notify(self):
+
+        return self.data["Device"]
