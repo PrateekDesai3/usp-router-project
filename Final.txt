@@ -1,0 +1,2734 @@
+N
+
+
+import subprocess
+
+
+def run_command(command, default):
+
+    try:
+
+        result = subprocess.run(
+
+            command,
+
+            shell=True,
+
+            capture_output=True,
+
+            text=True,
+
+            timeout=2
+
+        )
+
+        if result.returncode == 0:
+
+            output = result.stdout.strip()
+
+            if output != "":
+
+                return output
+
+    except Exception:
+
+        pass
+
+    return default
+
+
+TR181_SAMPLE_DATA = {
+
+    "Device": {
+
+        ###########################################################
+        # USP
+        ###########################################################
+
+        "USP": {
+
+            "LocalAgent": {
+
+                "Enable": True,
+
+                "EndpointID": run_command(
+
+                    "hostname",
+
+                    "usp-router"
+
+                ),
+
+                "Controller": [
+
+                    {
+
+                        "Enable": True,
+
+                        "Alias": "Controller1",
+
+                        "EndpointID": "controller",
+
+                        "AssignedRole": "Administrator",
+
+                        "Status": "Connected",
+
+                        "PeriodicNotifInterval": 60
+
+                    }
+
+                ],
+
+                "MTP": {
+
+                    "MQTT": {
+
+                        "Enable": True,
+
+                        "Broker": run_command(
+
+                            "hostname -I | awk '{print $1}'",
+
+                            "broker.hivemq.com"
+
+                        ),
+
+                        "Port": 1883,
+
+                        "ClientID": run_command(
+
+                            "hostname",
+
+                            "usp-router"
+
+                        ),
+
+                        "KeepAliveTime": 60,
+
+                        "Status": "Connected"
+
+                    }
+
+                },
+
+                "Subscription": [
+
+                    {
+
+                        "Enable": True,
+
+                        "ID": 1,
+
+                        "NotifType": "ValueChange"
+
+                    }
+
+                ],
+
+                "Request": {
+
+                    "RetryInterval": 30,
+
+                    "RetryMultiplier": 2
+
+                },
+
+                "Certificate": [
+
+                    {
+
+                        "Alias": "DeviceCert",
+
+                        "Status": "Installed"
+
+                    }
+
+                ],
+
+                "ControllerTrust": [
+
+                    {
+
+                        "Alias": "ControllerTrust1",
+
+                        "Status": "Trusted"
+
+                    }
+
+                ],
+
+                "Monitor": [
+
+                    {
+
+                        "Alias": "Monitor1",
+
+                        "Enable": True
+
+                    }
+
+                ],
+
+                "Threshold": [
+
+                    {
+
+                        "Alias": "CPU",
+
+                        "Value": 80
+
+                    }
+
+                ],
+
+                "Watchdog": {
+
+                    "Enable": True,
+
+                    "Timeout": 60
+
+                }
+
+            }
+
+        },
+
+        ###########################################################
+        # DEVICE INFO
+        ###########################################################
+
+        "DeviceInfo": {
+
+            "Manufacturer": run_command(
+
+                "cat /sys/devices/virtual/dmi/id/sys_vendor",
+
+                "Dummy Networks"
+
+            ),
+
+            "ManufacturerOUI": "001A2B",
+
+            "ModelName": run_command(
+
+                "cat /sys/devices/virtual/dmi/id/product_name",
+
+                "Virtual Router"
+
+            ),
+
+            "Description": "TR181 Virtual Router",
+
+            "ProductClass": "Router",
+
+            "SerialNumber": run_command(
+
+                "cat /sys/devices/virtual/dmi/id/product_serial",
+
+                "SN123456789"
+
+            ),
+
+            "HardwareVersion": run_command(
+
+                "uname -m",
+
+                "ARM64"
+
+            ),
+
+            "SoftwareVersion": run_command(
+
+                "uname -r",
+
+                "1.0.0"
+
+            ),
+
+            "BootLoaderVersion": "1.0",
+
+            "AdditionalHardwareVersion": "RevA",
+
+            "AdditionalSoftwareVersion": "Patch1",
+
+            "SpecVersion": "TR181",
+
+            "ProvisioningCode": "USP001",
+
+            "UpTime": run_command(
+
+                "cut -d' ' -f1 /proc/uptime",
+
+                "1000"
+
+            ),
+
+            "FirstUseDate": "2026-08-07",
+
+            "VendorLogFile": "/var/log/messages",
+
+            "SupportedDataModel": "TR-181",
+
+            "MemoryStatus": {
+
+                "Total": run_command(
+
+                    "grep MemTotal /proc/meminfo | awk '{print $2}'",
+
+                    "1048576"
+
+                ),
+
+                "Free": run_command(
+
+                    "grep MemFree /proc/meminfo | awk '{print $2}'",
+
+                    "512000"
+
+                )
+
+            },
+
+            "ProcessStatus": {
+
+                "CPUUsage": run_command(
+
+                    "top -bn1 | grep Cpu | awk '{print $2}'",
+
+                    "5"
+
+                ),
+
+                "RunningProcesses": run_command(
+
+                    "ps -e | wc -l",
+
+                    "120"
+
+                )
+
+            },
+
+            "TemperatureStatus": {
+
+                "CPU": run_command(
+
+                    "cat /sys/class/thermal/thermal_zone0/temp",
+
+                    "45000"
+
+                )
+
+            },
+
+            "NetworkProperties": {
+
+                "HostName": run_command(
+
+                    "hostname",
+
+                    "usp-router"
+
+                ),
+
+                "DomainName": run_command(
+
+                    "hostname -d",
+
+                    "local"
+
+                )
+
+            },
+
+            "Processor": {
+
+                "Model": run_command(
+
+                    "cat /proc/cpuinfo | grep 'model name' | head -1 | cut -d':' -f2",
+
+                    "ARM Cortex"
+
+                ),
+
+                "Architecture": run_command(
+
+                    "uname -m",
+
+                    "arm64"
+
+                )
+
+            }
+
+        },
+
+        ###########################################################
+        # SERVICES
+        ###########################################################
+
+        "Services": {
+
+            "VoiceServiceNumberOfEntries": 0,
+
+            "StorageServiceNumberOfEntries": 0,
+
+            "VoiceService": [],
+
+            "StorageService": []
+
+        },
+
+        ###########################################################
+        # USER INTERFACE
+        ###########################################################
+
+        "UserInterface": {
+
+            "Enable": True,
+
+            "HTTPAccess": {
+
+                "Enable": True,
+
+                "Port": run_command(
+
+                    "grep '^Listen' /etc/apache2/ports.conf 2>/dev/null | awk '{print $2}'",
+
+                    "80"
+
+                ),
+
+                "Status": "Enabled"
+
+            },
+
+            "HTTPSAccess": {
+
+                "Enable": True,
+
+                "Port": "443",
+
+                "Status": "Enabled"
+
+            },
+
+            "RemoteAccess": {
+
+                "Enable": True,
+
+                "Allowed": True
+
+            },
+
+            "Messages": {
+
+                "LoginMessage": "Welcome",
+
+                "Banner": "USP Virtual Router"
+
+            }
+
+        },
+
+        ###########################################################
+        # LAN CONFIG SECURITY
+        ###########################################################
+
+        "LANConfigSecurity": {
+
+            "Enable": True,
+
+            "ConfigPassword": "admin",
+
+            "PasswordProtected": True,
+
+            "MaxLoginAttempts": 5,
+
+            "LockoutTime": 300
+
+        },
+
+        ###########################################################
+        # HOSTS
+        ###########################################################
+
+        "Hosts": {
+
+            "HostNumberOfEntries": run_command(
+
+                "ip neigh | wc -l",
+
+                "1"
+
+            ),
+
+            "Host": [
+
+                {
+
+                    "Alias": "Host1",
+
+                    "HostName": run_command(
+
+                        "hostname",
+
+                        "Laptop"
+
+                    ),
+
+                    "IPAddress": run_command(
+
+                        "hostname -I | awk '{print $1}'",
+
+                        "192.168.1.100"
+
+                    ),
+
+                    "PhysAddress": run_command(
+
+                        "cat /sys/class/net/eth0/address",
+
+                        "00:11:22:33:44:55"
+
+                    ),
+
+                    "Layer1Interface": "Device.Ethernet.Interface.1",
+
+                    "Active": True,
+
+                    "LeaseTimeRemaining": 3600
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # USERS
+        ###########################################################
+
+        "Users": {
+
+            "UserNumberOfEntries": run_command(
+
+                "cut -d: -f1 /etc/passwd | wc -l",
+
+                "1"
+
+            ),
+
+            "User": [
+
+                {
+
+                    "Alias": "Admin",
+
+                    "Username": run_command(
+
+                        "whoami",
+
+                        "admin"
+
+                    ),
+
+                    "Enable": True,
+
+                    "Status": "Enabled",
+
+                    "Role": "Administrator"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # SMART CARD READERS
+        ###########################################################
+
+        "SmartCardReaders": {
+
+            "ReaderNumberOfEntries": 0,
+
+            "Reader": []
+
+        },
+
+        ###########################################################
+        # PERIODIC STATISTICS
+        ###########################################################
+
+        "PeriodicStatistics": {
+
+            "Enable": True,
+
+            "SampleInterval": 60,
+
+            "ReportSamples": 10,
+
+            "CPUUsage": run_command(
+
+                "top -bn1 | grep Cpu | awk '{print $2}'",
+
+                "5"
+
+            ),
+
+            "MemoryUsage": run_command(
+
+                "free | awk '/Mem/ {print $3}'",
+
+                "102400"
+
+            ),
+
+            "DiskUsage": run_command(
+
+                "df / | awk 'NR==2 {print $5}'",
+
+                "25%"
+
+            ),
+
+            "NetworkRX": run_command(
+
+                "cat /sys/class/net/eth0/statistics/rx_bytes",
+
+                "10000"
+
+            ),
+
+            "NetworkTX": run_command(
+
+                "cat /sys/class/net/eth0/statistics/tx_bytes",
+
+                "5000"
+
+            )
+
+        },
+
+        ###########################################################
+        # BULK DATA
+        ###########################################################
+
+        "BulkData": {
+
+            "Enable": True,
+
+            "ProfileNumberOfEntries": 1,
+
+            "Profile": [
+
+                {
+
+                    "Alias": "Default",
+
+                    "Protocol": "HTTP",
+
+                    "URL": "https://telemetry.example.com",
+
+                    "ReportingInterval": 300,
+
+                    "Status": "Enabled"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # SOFTWARE MODULES
+        ###########################################################
+
+        "SoftwareModules": {
+
+            "ExecEnvNumberOfEntries": 1,
+
+            "ExecutionUnitNumberOfEntries": 1,
+
+            "DeploymentUnitNumberOfEntries": 1,
+
+            "ExecEnv": [
+
+                {
+
+                    "Alias": "Python",
+
+                    "Enable": True,
+
+                    "Status": "Running",
+
+                    "Version": run_command(
+
+                        "python3 --version | awk '{print $2}'",
+
+                        "3.11"
+
+                    )
+
+                }
+
+            ],
+
+            "ExecutionUnit": [
+
+                {
+
+                    "Alias": "USPAgent",
+
+                    "Status": "Running",
+
+                    "Vendor": "Broadband Forum"
+
+                }
+
+            ],
+
+            "DeploymentUnit": [
+
+                {
+
+                    "UUID": "USP-001",
+
+                    "Version": "1.0.0",
+
+                    "Resolved": True
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # INTERFACE STACK
+        ###########################################################
+
+        ###########################################################
+        # INTERFACE STACK
+        ###########################################################
+
+        "InterfaceStack": {
+
+            "InterfaceNumberOfEntries": 1,
+
+            "Interface": [
+
+                {
+
+                    "HigherLayer": "Device.IP.Interface.1",
+
+                    "LowerLayer": "Device.Ethernet.Interface.1"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # DSL
+        ###########################################################
+
+        "DSL": {
+
+            "LineNumberOfEntries": 1,
+
+            "Line": [
+
+                {
+
+                    "Enable": True,
+
+                    "Alias": "DSL1",
+
+                    "Status": run_command(
+
+                        "ip link show | grep -q ppp0 && echo Up",
+
+                        "Down"
+
+                    ),
+
+                    "Standard": "VDSL2",
+
+                    "UpstreamRate": "100000",
+
+                    "DownstreamRate": "300000"
+
+                }
+
+            ],
+
+            "Channel": [
+
+                {
+
+                    "Alias": "Channel1",
+
+                    "Status": "Up"
+
+                }
+
+            ],
+
+            "Diagnostics": {
+
+                "LoopDiagnosticsState": "Complete"
+
+            }
+
+        },
+
+        ###########################################################
+        # FAST
+        ###########################################################
+
+        "FAST": {
+
+            "Enable": False,
+
+            "Status": "Disabled",
+
+            "Line": [
+
+                {
+
+                    "Alias": "FAST1",
+
+                    "Status": "Down"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # OPTICAL
+        ###########################################################
+
+        "Optical": {
+
+            "InterfaceNumberOfEntries": 1,
+
+            "Interface": [
+
+                {
+
+                    "Alias": "PON1",
+
+                    "Enable": True,
+
+                    "Status": run_command(
+
+                        "ip link show eth0 | grep UP",
+
+                        "Up"
+
+                    ),
+
+                    "Vendor": "DummyVendor",
+
+                    "RXPower": "-18",
+
+                    "TXPower": "2"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # CELLULAR
+        ###########################################################
+
+        "Cellular": {
+
+            "InterfaceNumberOfEntries": 1,
+
+            "Interface": [
+
+                {
+
+                    "Alias": "Cellular1",
+
+                    "Enable": False,
+
+                    "Status": "Down",
+
+                    "IMEI": "123456789012345",
+
+                    "IMSI": "404999123456789",
+
+                    "Operator": "Dummy Operator",
+
+                    "SignalStrength": "-75"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # ATM
+        ###########################################################
+
+        "ATM": {
+
+            "LinkNumberOfEntries": 1,
+
+            "Link": [
+
+                {
+
+                    "Alias": "ATM1",
+
+                    "Enable": False,
+
+                    "Status": "Down",
+
+                    "VPI": 8,
+
+                    "VCI": 35
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # DOCSIS
+        ###########################################################
+
+        "DOCSIS": {
+
+            "Enable": False,
+
+            "Status": "Disabled",
+
+            "Interface": [
+
+                {
+
+                    "Alias": "DOCSIS1",
+
+                    "Status": "Down"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # PTM
+        ###########################################################
+
+        "PTM": {
+
+            "LinkNumberOfEntries": 1,
+
+            "Link": [
+
+                {
+
+                    "Alias": "PTM1",
+
+                    "Enable": False,
+
+                    "Status": "Down"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # ETHERNET
+        ###########################################################
+
+        "Ethernet": {
+
+            "InterfaceNumberOfEntries": 1,
+
+            "LinkNumberOfEntries": 1,
+
+            "Interface": [
+
+                {
+
+                    "Enable": True,
+
+                    "Alias": "Ethernet1",
+
+                    "Name": "eth0",
+
+                    "Status": run_command(
+
+                        "cat /sys/class/net/eth0/operstate",
+
+                        "up"
+
+                    ),
+
+                    "MACAddress": run_command(
+
+                        "cat /sys/class/net/eth0/address",
+
+                        "00:11:22:33:44:55"
+
+                    ),
+
+                    "MaxBitRate": "1000",
+
+                    "DuplexMode": run_command(
+
+                        "cat /sys/class/net/eth0/duplex",
+
+                        "Full"
+
+                    ),
+
+                    "MTU": run_command(
+
+                        "cat /sys/class/net/eth0/mtu",
+
+                        "1500"
+
+                    )
+
+                }
+
+            ],
+
+            "Link": [
+
+                {
+
+                    "Alias": "Link1",
+
+                    "Enable": True,
+
+                    "Status": "Up"
+
+                }
+
+            ],
+
+            "VLANTermination": [
+
+                {
+
+                    "Alias": "VLAN100",
+
+                    "VLANID": 100
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # USB
+        ###########################################################
+
+        "USB": {
+
+            "InterfaceNumberOfEntries": 1,
+
+            "Interface": [
+
+                {
+
+                    "Alias": "USB1",
+
+                    "Enable": True,
+
+                    "Status": run_command(
+
+                        "lsusb | wc -l",
+
+                        "1"
+
+                    ),
+
+                    "Version": "3.0"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # HPNA
+        ###########################################################
+
+        "HPNA": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # MOCA
+        ###########################################################
+
+        "MoCA": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # GHN
+        ###########################################################
+
+        "Ghn": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # HOMEPLUG
+        ###########################################################
+
+        "HomePlug": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # UPA
+        ###########################################################
+
+        "UPA": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # WIFI
+        ###########################################################
+
+        "WiFi": {
+
+            "RadioNumberOfEntries": 1,
+            "SSIDNumberOfEntries": 1,
+            "AccessPointNumberOfEntries": 1,
+            "EndPointNumberOfEntries": 0,
+
+            "Radio": [
+
+                {
+
+                    "Enable": True,
+
+                    "Alias": "Radio1",
+
+                    "Name": "wlan0",
+
+                    "Status": run_command(
+
+                        "cat /sys/class/net/wlan0/operstate",
+
+                        "up"
+
+                    ),
+
+                    "OperatingFrequencyBand": run_command(
+
+                        "iw dev wlan0 info | grep channel | awk '{print $2}'",
+
+                        "2.4GHz"
+
+                    ),
+
+                    "Channel": run_command(
+
+                        "iw dev wlan0 info | grep channel | awk '{print $2}'",
+
+                        "6"
+
+                    ),
+
+                    "TransmitPower": run_command(
+
+                        "iwconfig wlan0 | grep Tx-Power | awk -F= '{print $2}'",
+
+                        "20 dBm"
+
+                    )
+
+                }
+
+            ],
+
+            "SSID": [
+
+                {
+
+                    "Enable": True,
+
+                    "Alias": "SSID1",
+
+                    "SSID": run_command(
+
+                        "iwgetid -r",
+
+                        "USP-Router"
+
+                    ),
+
+                    "Status": "Up"
+
+                }
+
+            ],
+
+            "AccessPoint": [
+
+                {
+
+                    "Enable": True,
+
+                    "Alias": "AP1",
+
+                    "Status": "Enabled",
+
+                    "SSIDReference": "Device.WiFi.SSID.1"
+
+                }
+
+            ],
+
+            "EndPoint": [],
+
+            "MultiAP": {
+
+                "Enable": False
+
+            }
+
+        },
+
+        ###########################################################
+        # ZIGBEE
+        ###########################################################
+
+        "ZigBee": {
+
+            "Enable": False,
+
+            "Status": "Disabled",
+
+            "Interface": [
+
+                {
+
+                    "Alias": "ZigBee1",
+
+                    "PANID": "0x1234",
+
+                    "Channel": 15
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # BRIDGING
+        ###########################################################
+
+        "Bridging": {
+
+            "BridgeNumberOfEntries": 1,
+
+            "Bridge": [
+
+                {
+
+                    "Enable": True,
+
+                    "Alias": "Bridge1",
+
+                    "Status": run_command(
+
+                        "ip link show br0 >/dev/null 2>&1 && echo Up",
+
+                        "Down"
+
+                    ),
+
+                    "Port": [
+
+                        {
+
+                            "Alias": "Port1",
+
+                            "Enable": True,
+
+                            "LowerLayers": "Device.Ethernet.Interface.1"
+
+                        }
+
+                    ]
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # PPP
+        ###########################################################
+
+        "PPP": {
+
+            "InterfaceNumberOfEntries": 1,
+
+            "Interface": [
+
+                {
+
+                    "Enable": False,
+
+                    "Alias": "PPP1",
+
+                    "Username": "admin",
+
+                    "Password": "password",
+
+                    "Status": run_command(
+
+                        "ip link show ppp0 >/dev/null 2>&1 && echo Up",
+
+                        "Down"
+
+                    )
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # IP
+        ###########################################################
+
+        "IP": {
+
+            "IPv4Capable": True,
+
+            "IPv6Capable": True,
+
+            "InterfaceNumberOfEntries": 1,
+
+            "Interface": [
+
+                {
+
+                    "Enable": True,
+
+                    "Alias": "IP1",
+
+                    "Status": "Up",
+
+                    "Name": "eth0",
+
+                    "IPv4Address": [
+
+                        {
+
+                            "IPAddress": run_command(
+
+                                "hostname -I | awk '{print $1}'",
+
+                                "192.168.1.100"
+
+                            ),
+
+                            "SubnetMask": run_command(
+
+                                "ip -o -f inet addr show eth0 | awk '{print $4}'",
+
+                                "255.255.255.0"
+
+                            )
+
+                        }
+
+                    ],
+
+                    "IPv6Address": [
+
+                        {
+
+                            "IPAddress": run_command(
+
+                                "ip -6 addr show eth0 | grep inet6 | head -1 | awk '{print $2}'",
+
+                                "fe80::1/64"
+
+                            )
+
+                        }
+
+                    ]
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # GRE
+        ###########################################################
+
+        "GRE": {
+
+            "Tunnel": [
+
+                {
+
+                    "Enable": False,
+
+                    "Alias": "GRE1",
+
+                    "Status": "Down"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # L2TPv3
+        ###########################################################
+
+        "L2TPv3": {
+
+            "Tunnel": [
+
+                {
+
+                    "Enable": False,
+
+                    "Alias": "L2TP1",
+
+                    "Status": "Down"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # VXLAN
+        ###########################################################
+
+        "VXLAN": {
+
+            "Tunnel": [
+
+                {
+
+                    "Enable": False,
+
+                    "Alias": "VXLAN1",
+
+                    "VNI": 100,
+
+                    "Status": "Down"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # MAP
+        ###########################################################
+
+        "MAP": {
+
+            "Domain": [
+
+                {
+
+                    "Enable": False,
+
+                    "Alias": "MAP1",
+
+                    "Status": "Disabled"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # IEEE1905
+        ###########################################################
+
+        "IEEE1905": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # FWE
+        ###########################################################
+
+        "FWE": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # LOGICAL
+        ###########################################################
+
+        "Logical": {
+
+            "Interface": [
+
+                {
+
+                    "Enable": True,
+
+                    "Alias": "Loopback0",
+
+                    "Status": "Up"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # XPON
+        ###########################################################
+
+        "XPON": {
+
+            "Enable": False,
+
+            "Status": "Disabled",
+
+            "Interface": [
+
+                {
+
+                    "Alias": "XPON1",
+
+                    "Status": "Down"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # APPLICATIONS & PROTOCOLS
+        ###########################################################
+
+
+        ###########################################################
+        # BOOT
+        ###########################################################
+
+        "Boot": {
+
+            "LastBootReason": run_command(
+
+                "last reboot | head -1",
+
+                "PowerOn"
+
+            ),
+
+            "BootCount": run_command(
+
+                "cat /proc/sys/kernel/random/boot_id",
+
+                "1"
+
+            ),
+
+            "FirmwareVersion": run_command(
+
+                "uname -r",
+
+                "1.0.0"
+
+            )
+
+        },
+
+        ###########################################################
+        # SCHEDULE TIMER
+        ###########################################################
+
+        "ScheduleTimer": {
+
+            "Enable": True,
+
+            "TimerNumberOfEntries": 1,
+
+            "Timer": [
+
+                {
+
+                    "Alias": "Daily",
+
+                    "Enable": True,
+
+                    "Status": "Enabled",
+
+                    "StartTime": "02:00:00",
+
+                    "Interval": 86400
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # TIME
+        ###########################################################
+
+        "Time": {
+
+            "Enable": True,
+
+            "Status": run_command(
+
+                "timedatectl show -p NTPSynchronized --value",
+
+                "Yes"
+
+            ),
+
+            "CurrentLocalTime": run_command(
+
+                "date '+%Y-%m-%d %H:%M:%S'",
+
+                "2026-08-07 10:00:00"
+
+            ),
+
+            "CurrentUTCTime": run_command(
+
+                "date -u '+%Y-%m-%d %H:%M:%S'",
+
+                "2026-08-07 04:30:00"
+
+            ),
+
+            "LocalTimeZone": run_command(
+
+                "timedatectl | grep 'Time zone' | awk '{print $3}'",
+
+                "Asia/Kolkata"
+
+            ),
+
+            "NTPServer1": "pool.ntp.org",
+
+            "NTPServer2": "time.google.com"
+
+        },
+
+        ###########################################################
+        # LLDP
+        ###########################################################
+
+        "LLDP": {
+
+            "Enable": True,
+
+            "Status": run_command(
+
+                "systemctl is-active lldpd",
+
+                "inactive"
+
+            ),
+
+            "Interface": [
+
+                {
+
+                    "Alias": "eth0",
+
+                    "ChassisID": run_command(
+
+                        "cat /sys/class/net/eth0/address",
+
+                        "00:11:22:33:44:55"
+
+                    ),
+
+                    "PortID": "eth0"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # IPSEC
+        ###########################################################
+
+        "IPsec": {
+
+            "Enable": False,
+
+            "TunnelNumberOfEntries": 1,
+
+            "Tunnel": [
+
+                {
+
+                    "Alias": "Tunnel1",
+
+                    "Status": "Down",
+
+                    "RemoteEndpoint": "10.0.0.1",
+
+                    "Encryption": "AES256"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # CAPTIVE PORTAL
+        ###########################################################
+
+        "CaptivePortal": {
+
+            "Enable": False,
+
+            "Status": "Disabled",
+
+            "URL": "http://portal.local"
+
+        },
+
+        ###########################################################
+        # ROUTING
+        ###########################################################
+
+        "Routing": {
+
+            "RouterNumberOfEntries": 1,
+
+            "Router": [
+
+                {
+
+                    "Alias": "Router1",
+
+                    "Enable": True,
+
+                    "Status": "Enabled"
+
+                }
+
+            ],
+
+            "IPv4Forwarding": [
+
+                {
+
+                    "Destination": "0.0.0.0/0",
+
+                    "Gateway": run_command(
+
+                        "ip route | grep default | awk '{print $3}'",
+
+                        "192.168.1.1"
+
+                    ),
+
+                    "Interface": "eth0"
+
+                }
+
+            ],
+
+            "IPv6Forwarding": [
+
+                {
+
+                    "Destination": "::/0",
+
+                    "Gateway": run_command(
+
+                        "ip -6 route | grep default | awk '{print $3}'",
+
+                        "fe80::1"
+
+                    ),
+
+                    "Interface": "eth0"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # NEIGHBOR DISCOVERY
+        ###########################################################
+
+        "NeighborDiscovery": {
+
+            "Enable": True,
+
+            "NeighborNumberOfEntries": run_command(
+
+                "ip neigh | wc -l",
+
+                "1"
+
+            ),
+
+            "Neighbor": [
+
+                {
+
+                    "IPAddress": run_command(
+
+                        "ip neigh | head -1 | awk '{print $1}'",
+
+                        "192.168.1.2"
+
+                    ),
+
+                    "MACAddress": run_command(
+
+                        "ip neigh | head -1 | awk '{print $5}'",
+
+                        "AA:BB:CC:DD:EE:FF"
+
+                    ),
+
+                    "Status": "Reachable"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # ROUTER ADVERTISEMENT
+        ###########################################################
+
+        "RouterAdvertisement": {
+
+            "Enable": True,
+
+            "MaxInterval": 600,
+
+            "MinInterval": 200
+
+        },
+
+        ###########################################################
+        # IPv6RD
+        ###########################################################
+
+        "IPv6rd": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # DSLITE
+        ###########################################################
+
+        "DSLite": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # QOS
+        ###########################################################
+
+        "QoS": {
+
+            "Enable": True,
+
+            "ClassificationNumberOfEntries": 1,
+
+            "Classification": [
+
+                {
+
+                    "Alias": "QoS1",
+
+                    "Enable": True,
+
+                    "Order": 1,
+
+                    "Status": "Enabled"
+
+                }
+
+            ],
+
+            "Queue": [
+
+                {
+
+                    "Alias": "Queue1",
+
+                    "Enable": True,
+
+                    "Status": "Enabled"
+
+                }
+
+            ]
+
+        },        ###########################################################
+        # BOOT
+        ###########################################################
+
+        "Boot": {
+
+            "LastBootReason": run_command(
+
+                "last reboot | head -1",
+
+                "PowerOn"
+
+            ),
+
+            "BootCount": run_command(
+
+                "cat /proc/sys/kernel/random/boot_id",
+
+                "1"
+
+            ),
+
+            "FirmwareVersion": run_command(
+
+                "uname -r",
+
+                "1.0.0"
+
+            )
+
+        },
+
+        ###########################################################
+        # SCHEDULE TIMER
+        ###########################################################
+
+        "ScheduleTimer": {
+
+            "Enable": True,
+
+            "TimerNumberOfEntries": 1,
+
+            "Timer": [
+
+                {
+
+                    "Alias": "Daily",
+
+                    "Enable": True,
+
+                    "Status": "Enabled",
+
+                    "StartTime": "02:00:00",
+
+                    "Interval": 86400
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # TIME
+        ###########################################################
+
+        "Time": {
+
+            "Enable": True,
+
+            "Status": run_command(
+
+                "timedatectl show -p NTPSynchronized --value",
+
+                "Yes"
+
+            ),
+
+            "CurrentLocalTime": run_command(
+
+                "date '+%Y-%m-%d %H:%M:%S'",
+
+                "2026-08-07 10:00:00"
+
+            ),
+
+            "CurrentUTCTime": run_command(
+
+                "date -u '+%Y-%m-%d %H:%M:%S'",
+
+                "2026-08-07 04:30:00"
+
+            ),
+
+            "LocalTimeZone": run_command(
+
+                "timedatectl | grep 'Time zone' | awk '{print $3}'",
+
+                "Asia/Kolkata"
+
+            ),
+
+            "NTPServer1": "pool.ntp.org",
+
+            "NTPServer2": "time.google.com"
+
+        },
+
+        ###########################################################
+        # LLDP
+        ###########################################################
+
+        "LLDP": {
+
+            "Enable": True,
+
+            "Status": run_command(
+
+                "systemctl is-active lldpd",
+
+                "inactive"
+
+            ),
+
+            "Interface": [
+
+                {
+
+                    "Alias": "eth0",
+
+                    "ChassisID": run_command(
+
+                        "cat /sys/class/net/eth0/address",
+
+                        "00:11:22:33:44:55"
+
+                    ),
+
+                    "PortID": "eth0"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # IPSEC
+        ###########################################################
+
+        "IPsec": {
+
+            "Enable": False,
+
+            "TunnelNumberOfEntries": 1,
+
+            "Tunnel": [
+
+                {
+
+                    "Alias": "Tunnel1",
+
+                    "Status": "Down",
+
+                    "RemoteEndpoint": "10.0.0.1",
+
+                    "Encryption": "AES256"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # CAPTIVE PORTAL
+        ###########################################################
+
+        "CaptivePortal": {
+
+            "Enable": False,
+
+            "Status": "Disabled",
+
+            "URL": "http://portal.local"
+
+        },
+
+        ###########################################################
+        # ROUTING
+        ###########################################################
+
+        "Routing": {
+
+            "RouterNumberOfEntries": 1,
+
+            "Router": [
+
+                {
+
+                    "Alias": "Router1",
+
+                    "Enable": True,
+
+                    "Status": "Enabled"
+
+                }
+
+            ],
+
+            "IPv4Forwarding": [
+
+                {
+
+                    "Destination": "0.0.0.0/0",
+
+                    "Gateway": run_command(
+
+                        "ip route | grep default | awk '{print $3}'",
+
+                        "192.168.1.1"
+
+                    ),
+
+                    "Interface": "eth0"
+
+                }
+
+            ],
+
+            "IPv6Forwarding": [
+
+                {
+
+                    "Destination": "::/0",
+
+                    "Gateway": run_command(
+
+                        "ip -6 route | grep default | awk '{print $3}'",
+
+                        "fe80::1"
+
+                    ),
+
+                    "Interface": "eth0"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # NEIGHBOR DISCOVERY
+        ###########################################################
+
+        "NeighborDiscovery": {
+
+            "Enable": True,
+
+            "NeighborNumberOfEntries": run_command(
+
+                "ip neigh | wc -l",
+
+                "1"
+
+            ),
+
+            "Neighbor": [
+
+                {
+
+                    "IPAddress": run_command(
+
+                        "ip neigh | head -1 | awk '{print $1}'",
+
+                        "192.168.1.2"
+
+                    ),
+
+                    "MACAddress": run_command(
+
+                        "ip neigh | head -1 | awk '{print $5}'",
+
+                        "AA:BB:CC:DD:EE:FF"
+
+                    ),
+
+                    "Status": "Reachable"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # ROUTER ADVERTISEMENT
+        ###########################################################
+
+        "RouterAdvertisement": {
+
+            "Enable": True,
+
+            "MaxInterval": 600,
+
+            "MinInterval": 200
+
+        },
+
+        ###########################################################
+        # IPv6RD
+        ###########################################################
+
+        "IPv6rd": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # DSLITE
+        ###########################################################
+
+        "DSLite": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # QOS
+        ###########################################################
+
+        "QoS": {
+
+            "Enable": True,
+
+            "ClassificationNumberOfEntries": 1,
+
+            "Classification": [
+
+                {
+
+                    "Alias": "QoS1",
+
+                    "Enable": True,
+
+                    "Order": 1,
+
+                    "Status": "Enabled"
+
+                }
+
+            ],
+
+            "Queue": [
+
+                {
+
+                    "Alias": "Queue1",
+
+                    "Enable": True,
+
+                    "Status": "Enabled"
+
+                }
+
+            ]
+
+        },        ###########################################################
+        # XMPP
+        ###########################################################
+
+        "XMPP": {
+
+            "Enable": False,
+
+            "Status": "Disabled",
+
+            "Connection": [
+
+                {
+
+                    "Alias": "XMPP1",
+
+                    "Server": "xmpp.example.com",
+
+                    "Port": 5222,
+
+                    "Username": "router",
+
+                    "Status": "Disconnected"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # MQTT
+        ###########################################################
+
+        "MQTT": {
+
+            "Enable": True,
+
+            "Broker": run_command(
+
+                "hostname -I | awk '{print $1}'",
+
+                "broker.hivemq.com"
+
+            ),
+
+            "Port": 1883,
+
+            "ClientID": run_command(
+
+                "hostname",
+
+                "usp-router"
+
+            ),
+
+            "Username": "mqtt",
+
+            "Password": "mqtt",
+
+            "KeepAlive": 60,
+
+            "Status": "Connected"
+
+        },
+
+        ###########################################################
+        # DYNAMIC DNS
+        ###########################################################
+
+        "DynamicDNS": {
+
+            "Enable": False,
+
+            "Provider": "No-IP",
+
+            "Hostname": "router.ddns.net",
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # LEDS
+        ###########################################################
+
+        "LEDs": {
+
+            "LEDNumberOfEntries": 2,
+
+            "LED": [
+
+                {
+
+                    "Alias": "Power",
+
+                    "Color": "Green",
+
+                    "State": "On"
+
+                },
+
+                {
+
+                    "Alias": "Internet",
+
+                    "Color": "Blue",
+
+                    "State": "Blinking"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # BASAPM
+        ###########################################################
+
+        "BASAPM": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # LMAP
+        ###########################################################
+
+        "LMAP": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # WWC
+        ###########################################################
+
+        "WWC": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        ###########################################################
+        # PDU
+        ###########################################################
+
+        "PDU": {
+
+            "Enable": True,
+
+            "Status": "Ready"
+
+        },
+
+        ###########################################################
+        # SSH
+        ###########################################################
+
+        "SSH": {
+
+            "Enable": True,
+
+            "Port": run_command(
+
+                "grep '^Port' /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}'",
+
+                "22"
+
+            ),
+
+            "Status": run_command(
+
+                "systemctl is-active ssh",
+
+                "inactive"
+
+            )
+
+        },
+
+        ###########################################################
+        # CWMP MANAGEMENT SERVER
+        ###########################################################
+
+        "CWMPManagementServer": {
+
+            "EnableCWMP": False,
+
+            "URL": "https://acs.example.com",
+
+            "Username": "acs",
+
+            "Password": "acs"
+
+        },
+
+        ###########################################################
+        # UNIX DOMAIN SOCKETS
+        ###########################################################
+
+        "UnixDomainSockets": {
+
+            "Enable": True,
+
+            "SocketPath": "/tmp/usp.sock"
+
+        },
+
+        ###########################################################
+        # USP SERVICES
+        ###########################################################
+
+        "USPServices": {
+
+            "Enable": True,
+
+            "EndpointID": run_command(
+
+                "hostname",
+
+                "usp-router"
+
+            ),
+
+            "Controller": "controller"
+
+        },
+
+        ###########################################################
+        # SYSLOG
+        ###########################################################
+
+        "Syslog": {
+
+            "Enable": True,
+
+            "Server": "192.168.1.10",
+
+            "Port": 514,
+
+            "Status": "Enabled"
+
+        },
+
+        ###########################################################
+        # SCHEDULES
+        ###########################################################
+
+        "Schedules": {
+
+            "ScheduleNumberOfEntries": 1,
+
+            "Schedule": [
+
+                {
+
+                    "Alias": "Daily",
+
+                    "Enable": True,
+
+                    "Status": "Enabled"
+
+                }
+
+            ]
+
+        },
+
+        ###########################################################
+        # CWMP SPECIFIC
+        ###########################################################
+
+        "GatewayInfo": {
+
+            "Manufacturer": run_command(
+
+                "cat /sys/devices/virtual/dmi/id/sys_vendor",
+
+                "Dummy Networks"
+
+            ),
+
+            "Model": run_command(
+
+                "cat /sys/devices/virtual/dmi/id/product_name",
+
+                "Virtual Router"
+
+            ),
+
+            "SerialNumber": run_command(
+
+                "cat /sys/devices/virtual/dmi/id/product_serial",
+
+                "SN123456789"
+
+            )
+
+        },
+
+        ###########################################################
+        # USP SPECIFIC
+        ###########################################################
+
+        "Reboot": {
+
+            "Supported": True
+
+        },
+
+        "FactoryReset": {
+
+            "Supported": True
+
+        },
+
+        "SelfTestDiagnostics": {
+
+            "Enable": True,
+
+            "LastResult": "Pass"
+
+        },
+
+        "PacketCaptureDiagnostics": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        "Standby": {
+
+            "Enable": False,
+
+            "Status": "Active"
+
+        },
+
+        "ProxiedDevice": [
+
+            {
+
+                "Alias": "Proxy1",
+
+                "EndpointID": "device001",
+
+                "Status": "Online"
+
+            }
+
+        ],
+
+        "STOMP": {
+
+            "Enable": False,
+
+            "Status": "Disabled"
+
+        },
+
+        "IoTCapability": [
+
+            {
+
+                "Alias": "Matter",
+
+                "Supported": True
+
+            },
+
+            {
+
+                "Alias": "Thread",
+
+                "Supported": False
+
+            }
+
+        ],
+
+        "Node": [
+
+            {
+
+                "NodeID": 1,
+
+                "Alias": "MainNode",
+
+                "Status": "Online"
+
+            }
+
+        ]
+
+    }
+
+}
