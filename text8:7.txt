@@ -1,0 +1,684 @@
+New
+
+"InterfaceStack": {
+    "InterfaceNumberOfEntries": 1,
+    "Interface": [
+        {
+            "HigherLayer": "Device.IP.Interface.1",
+            "LowerLayer": "Device.Ethernet.Interface.1"
+        }
+    ]
+},
+
+"DSL": {
+    "Enable": True,
+    "Status": "Up",
+    "LineNumberOfEntries": 1,
+    "Line": [
+        {
+            "Alias": "DSLLine1",
+            "Status": "Up",
+            "Standard": "VDSL2",
+            "UpstreamRate": 100000,
+            "DownstreamRate": 300000
+        }
+    ]
+},
+
+"FAST": {
+    "Enable": True,
+    "Status": "Up",
+    "Interface": [
+        {
+            "Alias": "FAST1",
+            "Status": "Up"
+        }
+    ]
+},
+
+"Optical": {
+    "Enable": True,
+    "Status": "Up",
+    "Interface": [
+        {
+            "Alias": "Optical1",
+            "Status": "Up",
+            "Type": "GPON"
+        }
+    ]
+},
+
+"Cellular": {
+    "Enable": False,
+    "Status": "Down",
+    "Interface": [
+        {
+            "Alias": "Cellular1",
+            "IMEI": "123456789012345",
+            "IMSI": "404100123456789",
+            "Operator": "Dummy Telecom",
+            "Status": "Down"
+        }
+    ]
+},
+
+"ATM": {
+    "Enable": False,
+    "Link": [
+        {
+            "Alias": "ATM1",
+            "VPI": 8,
+            "VCI": 35,
+            "Status": "Down"
+        }
+    ]
+},
+
+"DOCSIS": {
+    "Enable": False,
+    "CableModem": {
+        "Alias": "DOCSIS1",
+        "Status": "Down"
+    }
+},
+
+"PTM": {
+    "Enable": False,
+    "Link": [
+        {
+            "Alias": "PTM1",
+            "Status": "Down"
+        }
+    ]
+},
+
+"Ethernet": {
+    "InterfaceNumberOfEntries": 1,
+    "Interface": [
+        {
+            "Enable": True,
+            "Alias": "Ethernet1",
+            "Name": "eth0",
+            "Status": "Up",
+            "MACAddress": "00:11:22:33:44:55",
+            "MaxBitRate": 1000,
+            "DuplexMode": "Full"
+        }
+    ],
+    "Link": [
+        {
+            "Enable": True,
+            "Alias": "EthernetLink1",
+            "Status": "Up"
+        }
+    ]
+},
+
+"USB": {
+    "Enable": True,
+    "Interface": [
+        {
+            "Alias": "USB1",
+            "Version": "3.0",
+            "Status": "Up"
+        }
+    ]
+},
+
+"HPNA": {
+    "Enable": False,
+    "Interface": [
+        {
+            "Alias": "HPNA1",
+            "Status": "Down"
+        }
+    ]
+},
+
+"MoCA": {
+    "Enable": True,
+    "Interface": [
+        {
+            "Alias": "MoCA1",
+            "NodeID": 1,
+            "Status": "Up"
+        }
+    ]
+},
+
+"Ghn": {
+    "Enable": True,
+    "Interface": [
+        {
+            "Alias": "Ghn1",
+            "Status": "Up"
+        }
+    ]
+},
+
+"HomePlug": {
+    "Enable": True,
+    "Network": {
+        "Alias": "HomePlug1",
+        "Status": "Up"
+    }
+},
+
+"UPA": {
+    "Enable": True,
+    "Network": {
+        "Alias": "UPA1",
+        "Status": "Up"
+    }
+},
+
+"WiFi": {
+    "RadioNumberOfEntries": 1,
+    "SSIDNumberOfEntries": 1,
+    "AccessPointNumberOfEntries": 1,
+
+    "Radio": [
+        {
+            "Enable": True,
+            "Alias": "Radio1",
+            "Status": "Up",
+            "OperatingFrequencyBand": "2.4GHz",
+            "Channel": 6,
+            "TransmitPower": 100
+        }
+    ],
+
+    "SSID": [
+        {
+            "Enable": True,
+            "Alias": "SSID1",
+            "SSID": "USP-Router",
+            "Status": "Up"
+        }
+    ],
+
+    "AccessPoint": [
+        {
+            "Enable": True,
+            "Alias": "AP1",
+            "Status": "Enabled",
+            "SSIDReference": "Device.WiFi.SSID.1"
+        }
+    ]
+},
+
+"ZigBee": {
+    "Enable": True,
+    "Network": {
+        "PANID": "0x1234",
+        "Channel": 15,
+        "Status": "Up"
+    }
+},
+
+"Bridging": {
+    "BridgeNumberOfEntries": 1,
+    "Bridge": [
+        {
+            "Enable": True,
+            "Alias": "Bridge1",
+            "Status": "Enabled",
+            "Port": [
+                {
+                    "Enable": True,
+                    "Alias": "Port1",
+                    "LowerLayers": "Device.Ethernet.Interface.1"
+                }
+            ]
+        }
+    ]
+},
+
+"PPP": {
+    "Interface": [
+        {
+            "Enable": False,
+            "Alias": "PPP1",
+            "Username": "admin",
+            "Password": "password",
+            "Status": "Down"
+        }
+    ]
+},
+
+"IP": {
+    "IPv4Capable": True,
+    "IPv6Capable": True,
+    "Interface": [
+        {
+            "Enable": True,
+            "Alias": "IP1",
+            "Status": "Up",
+            "IPv4Address": [
+                {
+                    "IPAddress": "192.168.1.1",
+                    "SubnetMask": "255.255.255.0"
+                }
+            ],
+            "IPv6Address": [
+                {
+                    "IPAddress": "fe80::1",
+                    "PrefixLength": 64
+                }
+            ]
+        }
+    ]
+},
+
+"GRE": {
+    "Tunnel": [
+        {
+            "Enable": False,
+            "Alias": "GRE1",
+            "Status": "Down"
+        }
+    ]
+},
+
+"L2TPv3": {
+    "Tunnel": [
+        {
+            "Enable": False,
+            "Alias": "L2TP1",
+            "Status": "Down"
+        }
+    ]
+},
+
+"VXLAN": {
+    "Tunnel": [
+        {
+            "Enable": False,
+            "Alias": "VXLAN1",
+            "VNI": 1000,
+            "Status": "Down"
+        }
+    ]
+},
+
+"MAP": {
+    "Domain": [
+        {
+            "Enable": False,
+            "Alias": "MAP1",
+            "Status": "Disabled"
+        }
+    ]
+},
+
+"IEEE1905": {
+    "Enable": True,
+    "Status": "Up",
+    "ALMACAddress": "AA:BB:CC:DD:EE:FF"
+},
+
+"FWE": {
+    "Enable": False,
+    "Status": "Disabled"
+},
+
+"Logical": {
+    "Interface": [
+        {
+            "Enable": True,
+            "Alias": "Logical1",
+            "Status": "Up"
+        }
+    ]
+},
+
+"XPON": {
+    "Enable": True,
+    "Status": "Up",
+    "Interface": [
+        {
+            "Alias": "XPON1",
+            "Technology": "XGS-PON",
+            "Status": "Up"
+        }
+    ]
+},
+
+"Boot": {
+    "ConfigFile": "startup.cfg",
+    "LastBootReason": "PowerOn",
+    "BootCount": 15
+},
+
+"ScheduleTimer": {
+    "Enable": True,
+    "Timer": [
+        {
+            "Alias": "Timer1",
+            "Name": "DailyBackup",
+            "Status": "Enabled",
+            "Time": "02:00:00"
+        }
+    ]
+},
+
+"Time": {
+    "Enable": True,
+    "CurrentLocalTime": "2026-08-07T10:00:00",
+    "NTPServer1": "pool.ntp.org",
+    "Status": "Synchronized",
+    "LocalTimeZone": "UTC+05:30"
+},
+
+"LLDP": {
+    "Enable": True,
+    "Status": "Up",
+    "ChassisID": "00:11:22:33:44:55"
+},
+
+"IPsec": {
+    "Enable": True,
+    "Tunnel": [
+        {
+            "Alias": "Tunnel1",
+            "Status": "Up",
+            "RemoteEndpoint": "10.0.0.1"
+        }
+    ]
+},
+
+"CaptivePortal": {
+    "Enable": False,
+    "Status": "Disabled"
+},
+
+"Routing": {
+    "RouterNumberOfEntries": 1,
+    "Router": [
+        {
+            "Alias": "Router1",
+            "Enable": True,
+            "IPv4Forwarding": True,
+            "DefaultGateway": "192.168.1.254"
+        }
+    ]
+},
+
+"NeighborDiscovery": {
+    "Enable": True,
+    "Status": "Running"
+},
+
+"RouterAdvertisement": {
+    "Enable": True,
+    "MaxInterval": 600
+},
+
+"IPv6rd": {
+    "Enable": False,
+    "Status": "Disabled"
+},
+
+"DSLite": {
+    "Enable": False,
+    "Status": "Disabled"
+},
+
+"QoS": {
+    "Enable": True,
+    "ClassificationNumberOfEntries": 1,
+    "Classification": [
+        {
+            "Alias": "QoS1",
+            "Enable": True,
+            "Order": 1
+        }
+    ]
+},
+
+"DNS": {
+    "Enable": True,
+    "Client": {
+        "Server": [
+            {
+                "DNSServer": "8.8.8.8"
+            },
+            {
+                "DNSServer": "1.1.1.1"
+            }
+        ]
+    }
+},
+
+"NAT": {
+    "Enable": True,
+    "PortMappingNumberOfEntries": 1,
+    "PortMapping": [
+        {
+            "Alias": "HTTP",
+            "ExternalPort": 80,
+            "InternalPort": 80,
+            "Protocol": "TCP"
+        }
+    ]
+},
+
+"PCP": {
+    "Enable": False,
+    "Status": "Disabled"
+},
+
+"DHCPv4": {
+    "Server": {
+        "Enable": True,
+        "Pool": [
+            {
+                "Alias": "LANPool",
+                "MinAddress": "192.168.1.100",
+                "MaxAddress": "192.168.1.200"
+            }
+        ]
+    }
+},
+
+"DHCPv6": {
+    "Server": {
+        "Enable": True,
+        "Pool": [
+            {
+                "Alias": "IPv6Pool",
+                "Prefix": "2001:db8::/64"
+            }
+        ]
+    }
+},
+
+"IEEE8021x": {
+    "Enable": False,
+    "Status": "Disabled"
+},
+
+"UPnP": {
+    "Enable": True,
+    "Status": "Running"
+},
+
+"DLNA": {
+    "Enable": False,
+    "Status": "Disabled"
+},
+
+"Firewall": {
+    "Enable": True,
+    "Level": "High",
+    "Rule": [
+        {
+            "Alias": "BlockTelnet",
+            "Action": "Drop"
+        }
+    ]
+},
+
+"FaultMgmt": {
+    "Enable": True,
+    "CurrentAlarmNumberOfEntries": 0
+},
+
+"Security": {
+    "Enable": True,
+    "DefaultPolicy": "AllowKnown"
+},
+
+"FAP": {
+    "Enable": False
+},
+
+"CollectionDevice": {
+    "Device": [
+        {
+            "Alias": "Collector1",
+            "Status": "Enabled"
+        }
+    ]
+},
+
+"XMPP": {
+    "Enable": False,
+    "Server": "xmpp.example.com"
+},
+
+"MQTT": {
+    "Enable": True,
+    "Broker": "mqtt://localhost:1883",
+    "ClientID": "usp-router",
+    "Status": "Connected"
+},
+
+"DynamicDNS": {
+    "Enable": False,
+    "Provider": "No-IP"
+},
+
+"LEDs": {
+    "LED": [
+        {
+            "Alias": "Power",
+            "State": "On"
+        },
+        {
+            "Alias": "Internet",
+            "State": "Blinking"
+        }
+    ]
+},
+
+"BASAPM": {
+    "Enable": False
+},
+
+"LMAP": {
+    "Enable": False
+},
+
+"WWC": {
+    "Enable": False
+},
+
+"PDU": {
+    "Enable": True,
+    "Status": "Ready"
+},
+
+"SSH": {
+    "Enable": True,
+    "Port": 22
+},
+
+"CWMPManagementServer": {
+    "EnableCWMP": True,
+    "URL": "https://acs.example.com",
+    "Username": "admin",
+    "Password": "admin"
+},
+
+"UnixDomainSockets": {
+    "Enable": True,
+    "Path": "/tmp/usp.sock"
+},
+
+"USPServices": {
+    "Enable": True,
+    "ControllerEndpoint": "controller-001"
+},
+
+"Syslog": {
+    "Enable": True,
+    "Server": "192.168.1.20",
+    "Port": 514
+},
+
+"Schedules": {
+    "Schedule": [
+        {
+            "Alias": "Daily",
+            "Status": "Enabled"
+        }
+    ]
+},
+
+# ---------------- CWMP ----------------
+
+"GatewayInfo": {
+    "Manufacturer": "Dummy Networks",
+    "Model": "Virtual Router",
+    "SerialNumber": "GW123456"
+},
+
+# ---------------- USP ----------------
+
+"Reboot": {
+    "LastReboot": "2026-08-07T09:00:00"
+},
+
+"FactoryReset": {
+    "Supported": True
+},
+
+"SelfTestDiagnostics": {
+    "LastResult": "Pass"
+},
+
+"PacketCaptureDiagnostics": {
+    "Enable": False
+},
+
+"Standby": {
+    "Enable": False
+},
+
+"ProxiedDevice": [
+    {
+        "Alias": "Proxy1",
+        "EndpointID": "device-001",
+        "Status": "Online"
+    }
+],
+
+"STOMP": {
+    "Enable": False
+},
+
+"IoTCapability": [
+    {
+        "Alias": "Matter",
+        "Supported": True
+    }
+],
+
+"Node": [
+    {
+        "NodeID": 1,
+        "Alias": "MainNode",
+        "Status": "Online"
+    }
+]
