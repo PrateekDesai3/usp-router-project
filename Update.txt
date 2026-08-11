@@ -1,0 +1,342 @@
+N
+
+
+import subprocess
+import threading
+import time
+
+from tr181_defaults import TR181_SAMPLE_DATA
+
+
+class TR181Operations:
+
+    WIFI_RADIO_ENABLE = "Device.WiFi.Radio.1.Enable"
+    WIFI_INTERFACE = "wlan0"
+
+    def __init__(self):
+        self.data = TR181_SAMPLE_DATA
+
+        self.notify_thread = None
+        self.notify_stop_event = threading.Event()
+
+    # =========================================================
+    # RUN SYSTEM COMMAND
+    # =========================================================
+
+    def run_command(self, command):
+
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+
+            if result.returncode == 0:
+                output = result.stdout.strip()
+
+                if output:
+                    return output
+
+        except Exception:
+            pass
+
+        return None
+
+    # =========================================================
+    # GET REAL WIFI ENABLE STATE
+    # =========================================================
+
+    def get_real_wifi_enable(self):
+
+        result = self.run_command(
+            "cat /sys/class/net/wlan0/operstate"
+        )
+
+        if result is not None:
+
+            if result.lower() == "up":
+                return True
+
+            if result.lower() in ["down", "unknown", "dormant"]:
+                return False
+
+        return None
+
+    # =========================================================
+    # GET
+    # =========================================================
+
+    def get(self, path):
+
+        if path == self.WIFI_RADIO_ENABLE:
+
+            # First try the real Raspberry Pi
+            real_value = self.get_real_wifi_enable()
+
+            if real_value is not None:
+
+                # Keep data model synchronized
+                self.data["Device"]["WiFi"]["Radio"][0]["Enable"] = real_value
+
+                return {
+                    "Path": path,
+                    "Value": real_value,
+                    "Source": "system"
+                }
+
+            # If command/interface is unavailable,
+            # use hardcoded value from tr181_defaults.py
+            fallback = self.data["Device"]["WiFi"]["Radio"][0]["Enable"]
+
+            return {
+                "Path": path,
+                "Value": fallback,
+                "Source": "hardcoded"
+            }
+
+        return {
+            "Error": "Unsupported parameter",
+            "Path": path
+        }
+
+    # =========================================================
+    # SET
+    # =========================================================
+
+    def set(self, path, value):
+
+        if path != self.WIFI_RADIO_ENABLE:
+
+            return {
+                "Error": "Unsupported parameter",
+                "Path": path
+            }
+
+        if not isinstance(value, bool):
+
+            return {
+                "Error": "Value must be true or false",
+                "Path": path
+            }
+
+        command = None
+
+        if value is True:
+            command = "sudo ip link set wlan0 up"
+        else:
+            command = "sudo ip link set wlan0 down"
+
+        try:
+
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0:
+
+                # Verify actual state
+                real_value = self.get_real_wifi_enable()
+
+                if real_value is not None:
+
+                    self.data["Device"]["WiFi"]["Radio"][0]["Enable"] = real_value
+
+                    return {
+                        "Path": path,
+                        "Value": real_value,
+                        "Source": "system",
+                        "Status": "Success"
+                    }
+
+        except Exception:
+            pass
+
+        # If system command failed,
+        # update the data model with hardcoded value
+        self.data["Device"]["WiFi"]["Radio"][0]["Enable"] = value
+
+        return {
+            "Path": path,
+            "Value": value,
+            "Source": "hardcoded",
+            "Status": "Fallback"
+        }
+
+    # =========================================================
+    # GET BULK
+    # =========================================================
+
+    def get_bulk(self, paths):
+
+        response = []
+
+        for path in paths:
+
+            result = self.get(path)
+
+            response.append(result)
+
+        return {
+            "Operation": "GET_BULK",
+            "Parameters": response
+        }
+
+    # =========================================================
+    # NOTIFY
+    # =========================================================
+
+    def start_notify(self, interval=10, callback=None):
+
+        # Stop an existing notification thread
+        self.stop_notify()
+
+        self.notify_stop_event.clear()
+
+        self.notify_thread = threading.Thread(
+            target=self._notify_loop,
+            args=(interval, callback),
+            daemon=True
+        )
+
+        self.notify_thread.start()
+
+        return {
+            "Operation": "NOTIFY",
+            "Path": self.WIFI_RADIO_ENABLE,
+            "Interval": interval,
+            "Status": "Started"
+        }
+
+    # =========================================================
+    # NOTIFY LOOP
+    # =========================================================
+
+    def _notify_loop(self, interval, callback):
+
+        previous_value = self.get(
+            self.WIFI_RADIO_ENABLE
+        )["Value"]
+
+        while not self.notify_stop_event.is_set():
+
+            time.sleep(interval)
+
+            current_result = self.get(
+                self.WIFI_RADIO_ENABLE
+            )
+
+            current_value = current_result["Value"]
+
+            # Only notify when value changed
+            if current_value != previous_value:
+
+                notification = {
+                    "Operation": "NOTIFY",
+                    "Path": self.WIFI_RADIO_ENABLE,
+                    "OldValue": previous_value,
+                    "NewValue": current_value,
+                    "Source": current_result["Source"]
+                }
+
+                previous_value = current_value
+
+                if callback is not None:
+
+                    callback(notification)
+
+                else:
+
+                    print(
+                        "TR-181 NOTIFICATION:",
+                        notification
+                    )
+
+    # =========================================================
+    # STOP NOTIFY
+    # =========================================================
+
+    def stop_notify(self):
+
+        if self.notify_thread is not None:
+
+            self.notify_stop_event.set()
+
+            self.notify_thread = None
+
+        return {
+            "Operation": "NOTIFY",
+            "Path": self.WIFI_RADIO_ENABLE,
+            "Status": "Stopped"
+        }
+
+
+
+from tr181_operations import TR181Operations
+import time
+
+
+operations = TR181Operations()
+
+
+print("\n================ GET ================")
+
+print(
+    operations.get(
+        "Device.WiFi.Radio.1.Enable"
+    )
+)
+
+
+print("\n================ SET ================")
+
+print(
+    operations.set(
+        "Device.WiFi.Radio.1.Enable",
+        True
+    )
+)
+
+
+print("\n================ GET BULK ================")
+
+print(
+    operations.get_bulk(
+        [
+            "Device.WiFi.Radio.1.Enable"
+        ]
+    )
+)
+
+
+print("\n================ NOTIFY ================")
+
+def notification_received(data):
+
+    print(
+        "NOTIFICATION RECEIVED:",
+        data
+    )
+
+
+print(
+    operations.start_notify(
+        interval=5,
+        callback=notification_received
+    )
+)
+
+
+print("\nNotification running for 30 seconds...")
+
+time.sleep(30)
+
+print(
+    operations.stop_notify()
+)
