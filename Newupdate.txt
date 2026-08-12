@@ -1,0 +1,1789 @@
+New
+
+
+import json
+import paho.mqtt.client as mqtt
+
+from tr181_model import TR181Model
+from tr181_operations import TR181Operations
+
+
+# ============================================================
+# MQTT CONFIGURATION
+# ============================================================
+
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+
+REQUEST_TOPIC = "router/usp/request"
+RESPONSE_TOPIC = "router/usp/response"
+NOTIFY_TOPIC = "router/usp/notify"
+
+CLIENT_ID = "usp-agent"
+
+
+# ============================================================
+# TR-369 MQTT SUBSCRIBER
+# ============================================================
+
+class USPSubscriber:
+
+    def __init__(self):
+
+        self.client = mqtt.Client(
+            client_id=CLIENT_ID
+        )
+
+        # ----------------------------------------------------
+        # TR-181 MODEL
+        # ----------------------------------------------------
+
+        self.model = TR181Model()
+
+        # ----------------------------------------------------
+        # TR-369 OPERATION LAYER
+        # ----------------------------------------------------
+
+        self.operations = TR181Operations(
+
+            self.model,
+
+            notify_callback=self.publish_notification
+
+        )
+
+        # ----------------------------------------------------
+        # MQTT CALLBACKS
+        # ----------------------------------------------------
+
+        self.client.on_connect = self.on_connect
+
+        self.client.on_message = self.on_message
+
+        self.client.on_disconnect = self.on_disconnect
+
+    # ========================================================
+    # CONNECT
+    # ========================================================
+
+    def connect(self):
+
+        print(
+            "Connecting to MQTT broker:",
+            MQTT_BROKER,
+            MQTT_PORT
+        )
+
+        self.client.connect(
+
+            MQTT_BROKER,
+
+            MQTT_PORT,
+
+            keepalive=60
+
+        )
+
+        self.client.loop_forever()
+
+    # ========================================================
+    # MQTT CONNECT CALLBACK
+    # ========================================================
+
+    def on_connect(
+
+        self,
+
+        client,
+
+        userdata,
+
+        flags,
+
+        rc
+
+    ):
+
+        if rc == 0:
+
+            print(
+                "Connected to MQTT broker"
+            )
+
+            client.subscribe(
+
+                REQUEST_TOPIC,
+
+                qos=1
+
+            )
+
+            print(
+                "Subscribed to:",
+                REQUEST_TOPIC
+            )
+
+        else:
+
+            print(
+                "MQTT connection failed:",
+                rc
+            )
+
+    # ========================================================
+    # MQTT DISCONNECT
+    # ========================================================
+
+    def on_disconnect(
+
+        self,
+
+        client,
+
+        userdata,
+
+        rc
+
+    ):
+
+        print(
+            "Disconnected from MQTT:",
+            rc
+        )
+
+    # ========================================================
+    # RECEIVE REQUEST
+    # ========================================================
+
+    def on_message(
+
+        self,
+
+        client,
+
+        userdata,
+
+        msg
+
+    ):
+
+        print("\n================================")
+
+        print(
+            "MQTT MESSAGE RECEIVED"
+        )
+
+        print(
+            "Topic:",
+            msg.topic
+        )
+
+        try:
+
+            payload = msg.payload.decode(
+                "utf-8"
+            )
+
+            request = json.loads(
+                payload
+            )
+
+        except Exception as e:
+
+            print(
+                "Invalid JSON:",
+                e
+            )
+
+            return
+
+        print(
+            json.dumps(
+                request,
+                indent=4
+            )
+        )
+
+        print("================================")
+
+        # ----------------------------------------------------
+        # DISPATCH TR-369 OPERATION
+        # ----------------------------------------------------
+
+        response = self.handle_request(
+            request
+        )
+
+        # ----------------------------------------------------
+        # SEND RESPONSE
+        # ----------------------------------------------------
+
+        if response is not None:
+
+            self.publish_response(
+                response
+            )
+
+    # ========================================================
+    # TR-369 REQUEST DISPATCHER
+    # ========================================================
+
+    def handle_request(
+
+        self,
+
+        request
+
+    ):
+
+        message_type = request.get(
+            "messageType"
+        )
+
+        # ====================================================
+        # GET
+        # ====================================================
+
+        if message_type == "GET":
+
+            return self.handle_get(
+                request
+            )
+
+        # ====================================================
+        # GET BULK
+        # ====================================================
+
+        elif message_type == "GET_BULK":
+
+            return self.handle_get_bulk(
+                request
+            )
+
+        # ====================================================
+        # SET
+        # ====================================================
+
+        elif message_type == "SET":
+
+            return self.handle_set(
+                request
+            )
+
+        # ====================================================
+        # SUBSCRIBE
+        # ====================================================
+
+        elif message_type == "SUBSCRIBE":
+
+            return self.handle_subscribe(
+                request
+            )
+
+        # ====================================================
+        # UNSUBSCRIBE
+        # ====================================================
+
+        elif message_type == "UNSUBSCRIBE":
+
+            return self.handle_unsubscribe(
+                request
+            )
+
+        # ====================================================
+        # OPERATE
+        # ====================================================
+
+        elif message_type == "OPERATE":
+
+            print(
+                "OPERATE received"
+            )
+
+            return {
+
+                "messageType": "OPERATE_RESPONSE",
+
+                "success": False,
+
+                "error": "OPERATE not implemented yet"
+
+            }
+
+        # ====================================================
+        # UNKNOWN
+        # ====================================================
+
+        else:
+
+            return {
+
+                "messageType": "ERROR",
+
+                "success": False,
+
+                "error": (
+
+                    "Unsupported messageType: "
+
+                    + str(message_type)
+
+                )
+
+            }
+
+    # ========================================================
+    # GET
+    # ========================================================
+
+    def handle_get(
+
+        self,
+
+        request
+
+    ):
+
+        parameter = request.get(
+            "parameter"
+        )
+
+        if not parameter:
+
+            return {
+
+                "messageType": "GET_RESPONSE",
+
+                "success": False,
+
+                "error": "Missing parameter"
+
+            }
+
+        print(
+            "GET:",
+            parameter
+        )
+
+        return self.operations.get(
+            parameter
+        )
+
+    # ========================================================
+    # GET BULK
+    # ========================================================
+
+    def handle_get_bulk(
+
+        self,
+
+        request
+
+    ):
+
+        parameters = request.get(
+
+            "parameters",
+
+            []
+
+        )
+
+        if not parameters:
+
+            return {
+
+                "messageType": "GET_BULK_RESPONSE",
+
+                "success": False,
+
+                "error": "No parameters provided"
+
+            }
+
+        print(
+            "GET BULK:"
+        )
+
+        for parameter in parameters:
+
+            print(
+                "  ",
+                parameter
+            )
+
+        return self.operations.get_bulk(
+            parameters
+        )
+
+    # ========================================================
+    # SET
+    # ========================================================
+
+    def handle_set(
+
+        self,
+
+        request
+
+    ):
+
+        parameter = request.get(
+            "parameter"
+        )
+
+        value = request.get(
+            "value"
+        )
+
+        if not parameter:
+
+            return {
+
+                "messageType": "SET_RESPONSE",
+
+                "success": False,
+
+                "error": "Missing parameter"
+
+            }
+
+        print(
+            "SET:",
+            parameter,
+            "=",
+            value
+        )
+
+        return self.operations.set(
+
+            parameter,
+
+            value
+
+        )
+
+    # ========================================================
+    # SUBSCRIBE
+    # ========================================================
+
+    def handle_subscribe(
+
+        self,
+
+        request
+
+    ):
+
+        parameters = request.get(
+
+            "parameters",
+
+            []
+
+        )
+
+        interval = request.get(
+
+            "interval",
+
+            5
+
+        )
+
+        print(
+            "SUBSCRIBE:"
+        )
+
+        print(
+            "Parameters:",
+            parameters
+        )
+
+        print(
+            "Interval:",
+            interval
+        )
+
+        return self.operations.subscribe(
+
+            parameters,
+
+            interval
+
+        )
+
+    # ========================================================
+    # UNSUBSCRIBE
+    # ========================================================
+
+    def handle_unsubscribe(
+
+        self,
+
+        request
+
+    ):
+
+        subscription_id = request.get(
+
+            "subscriptionId"
+
+        )
+
+        print(
+            "UNSUBSCRIBE:",
+            subscription_id
+        )
+
+        return self.operations.unsubscribe(
+
+            subscription_id
+
+        )
+
+    # ========================================================
+    # PUBLISH RESPONSE
+    # ========================================================
+
+    def publish_response(
+
+        self,
+
+        response
+
+    ):
+
+        payload = json.dumps(
+
+            response
+
+        )
+
+        print("\n================================")
+
+        print(
+            "MQTT RESPONSE"
+        )
+
+        print(
+            payload
+        )
+
+        print("================================")
+
+        self.client.publish(
+
+            RESPONSE_TOPIC,
+
+            payload,
+
+            qos=1
+
+        )
+
+    # ========================================================
+    # PUBLISH NOTIFICATION
+    # ========================================================
+
+    def publish_notification(
+
+        self,
+
+        notification
+
+    ):
+
+        payload = json.dumps(
+
+            notification
+
+        )
+
+        print("\n================================")
+
+        print(
+            "TR-369 NOTIFICATION"
+        )
+
+        print(
+            payload
+        )
+
+        print("================================")
+
+        self.client.publish(
+
+            NOTIFY_TOPIC,
+
+            payload,
+
+            qos=1
+
+        )
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+if __name__ == "__main__":
+
+    subscriber = USPSubscriber()
+
+    subscriber.connect()
+
+
+
+
+
+Yes. Let’s do it for the whole TR-181 model you currently have, while keeping the existing architecture.
+Your TXT source already defines the current model around DeviceInfo, InterfaceStack, Ethernet, WiFi, IP, Routing, DNS, DHCPv4, NAT, Firewall, QoS, and Security, and describes the intended TR181Model → router module → Linux flow.
+The key change is that TR-369 will dispatch operations, while TR-181 remains the model.
+1. Create 
+tr181_operations.py
+Put it beside tr181_model.py:
+publisher/
+├── tr181_model.py
+├── tr181_operations.py       ← NEW
+├── usp_agent.py
+├── main.py
+├── mqtt/
+└── router/
+Use this:
+import copy
+import threading
+import time
+
+
+class TR181Operations:
+
+    def __init__(self, model, notify_callback=None):
+
+        self.model = model
+        self.notify_callback = notify_callback
+
+        self.subscriptions = {}
+
+        self.previous_values = {}
+
+        self.notify_thread = None
+
+        self.stop_event = threading.Event()
+
+    # ==========================================================
+    # PATH NORMALIZATION
+    # ==========================================================
+
+    def normalize_path(self, path):
+
+        path = path.strip()
+
+        if path.endswith("."):
+            path = path[:-1]
+
+        return path
+
+    # ==========================================================
+    # GET SINGLE PARAMETER
+    # ==========================================================
+
+    def get(self, path):
+
+        path = self.normalize_path(path)
+
+        try:
+
+            value = self.model.get_parameter(path)
+
+            return {
+
+                "messageType": "GET_RESPONSE",
+
+                "parameter": path,
+
+                "value": value,
+
+                "success": True
+
+            }
+
+        except Exception as e:
+
+            return {
+
+                "messageType": "GET_RESPONSE",
+
+                "parameter": path,
+
+                "success": False,
+
+                "error": str(e)
+
+            }
+
+    # ==========================================================
+    # GET BULK
+    # ==========================================================
+
+    def get_bulk(self, paths):
+
+        results = []
+
+        for path in paths:
+
+            path = self.normalize_path(path)
+
+            try:
+
+                value = self.model.get_parameter(path)
+
+                results.append({
+
+                    "parameter": path,
+
+                    "value": value,
+
+                    "success": True
+
+                })
+
+            except Exception as e:
+
+                results.append({
+
+                    "parameter": path,
+
+                    "success": False,
+
+                    "error": str(e)
+
+                })
+
+        return {
+
+            "messageType": "GET_BULK_RESPONSE",
+
+            "results": results,
+
+            "success": True
+
+        }
+
+    # ==========================================================
+    # SET
+    # ==========================================================
+
+    def set(self, path, value):
+
+        path = self.normalize_path(path)
+
+        try:
+
+            old_value = self.model.get_parameter(path)
+
+            result = self.model.set_parameter(
+
+                path,
+
+                value
+
+            )
+
+            return {
+
+                "messageType": "SET_RESPONSE",
+
+                "parameter": path,
+
+                "oldValue": old_value,
+
+                "value": value,
+
+                "success": bool(result)
+
+            }
+
+        except Exception as e:
+
+            return {
+
+                "messageType": "SET_RESPONSE",
+
+                "parameter": path,
+
+                "success": False,
+
+                "error": str(e)
+
+            }
+
+    # ==========================================================
+    # SUBSCRIBE
+    # ==========================================================
+
+    def subscribe(self, paths, interval=5):
+
+        subscription_id = str(
+
+            len(self.subscriptions) + 1
+
+        )
+
+        self.subscriptions[subscription_id] = {
+
+            "paths": paths,
+
+            "interval": interval,
+
+            "lastCheck": 0,
+
+            "enabled": True
+
+        }
+
+        # Store initial values
+
+        for path in paths:
+
+            try:
+
+                self.previous_values[path] = copy.deepcopy(
+
+                    self.model.get_parameter(path)
+
+                )
+
+            except Exception:
+
+                pass
+
+        # Start monitor thread
+
+        if self.notify_thread is None:
+
+            self.stop_event.clear()
+
+            self.notify_thread = threading.Thread(
+
+                target=self._notification_loop,
+
+                daemon=True
+
+            )
+
+            self.notify_thread.start()
+
+        return {
+
+            "messageType": "SUBSCRIBE_RESPONSE",
+
+            "subscriptionId": subscription_id,
+
+            "paths": paths,
+
+            "interval": interval,
+
+            "success": True
+
+        }
+
+    # ==========================================================
+    # UNSUBSCRIBE
+    # ==========================================================
+
+    def unsubscribe(self, subscription_id):
+
+        if subscription_id not in self.subscriptions:
+
+            return {
+
+                "messageType": "UNSUBSCRIBE_RESPONSE",
+
+                "subscriptionId": subscription_id,
+
+                "success": False,
+
+                "error": "Subscription not found"
+
+            }
+
+        del self.subscriptions[subscription_id]
+
+        if not self.subscriptions:
+
+            self.stop_event.set()
+
+            self.notify_thread = None
+
+        return {
+
+            "messageType": "UNSUBSCRIBE_RESPONSE",
+
+            "subscriptionId": subscription_id,
+
+            "success": True
+
+        }
+
+    # ==========================================================
+    # NOTIFICATION LOOP
+    # ==========================================================
+
+    def _notification_loop(self):
+
+        while not self.stop_event.is_set():
+
+            current_time = time.time()
+
+            for subscription_id, subscription in list(
+
+                self.subscriptions.items()
+
+            ):
+
+                if not subscription["enabled"]:
+
+                    continue
+
+                interval = subscription["interval"]
+
+                if (
+
+                    current_time -
+
+                    subscription["lastCheck"]
+
+                ) < interval:
+
+                    continue
+
+                subscription["lastCheck"] = current_time
+
+                self._check_subscription(
+
+                    subscription_id,
+
+                    subscription
+
+                )
+
+            time.sleep(1)
+
+    # ==========================================================
+    # CHECK CHANGES
+    # ==========================================================
+
+    def _check_subscription(
+
+        self,
+
+        subscription_id,
+
+        subscription
+
+    ):
+
+        for path in subscription["paths"]:
+
+            try:
+
+                current_value = copy.deepcopy(
+
+                    self.model.get_parameter(path)
+
+                )
+
+                previous_value = self.previous_values.get(
+
+                    path
+
+                )
+
+                if current_value != previous_value:
+
+                    notification = {
+
+                        "messageType": "NOTIFY",
+
+                        "event": "ValueChange",
+
+                        "subscriptionId": subscription_id,
+
+                        "parameter": path,
+
+                        "oldValue": previous_value,
+
+                        "newValue": current_value
+
+                    }
+
+                    self.previous_values[path] = copy.deepcopy(
+
+                        current_value
+
+                    )
+
+                    self.publish_notification(
+
+                        notification
+
+                    )
+
+            except Exception as e:
+
+                print(
+
+                    "Notification error:",
+
+                    path,
+
+                    e
+
+                )
+
+    # ==========================================================
+    # NOTIFY
+    # ==========================================================
+
+    def publish_notification(self, notification):
+
+        if self.notify_callback:
+
+            self.notify_callback(
+
+                notification
+
+            )
+
+        else:
+
+            print(
+
+                "NOTIFY:",
+
+                notification
+
+            )
+ 
+⸻
+ 
+2. Update 
+tr181_model.py
+Your existing project already has the individual modules and get_model() aggregation. 
+Tr181.txt
+Add these methods inside TR181Model:
+    def get_parameter(self, parameter):
+
+        parameter = parameter.rstrip(".")
+
+        # --------------------------------------------------
+        # Return the complete object for an object-level GET
+        # --------------------------------------------------
+
+        if parameter == "Device":
+
+            return self.get_model()["Device"]
+
+        # --------------------------------------------------
+        # Existing TR-181 modules
+        # --------------------------------------------------
+
+        if parameter.startswith("Device.DeviceInfo"):
+
+            return self.device_info.get()
+
+        if parameter.startswith("Device.Services"):
+
+            return self.services.get()
+
+        if parameter.startswith("Device.ManagementServer"):
+
+            return self.management_server.get()
+
+        if parameter.startswith("Device.GatewayInfo"):
+
+            return self.gateway_info.get()
+
+        if parameter.startswith("Device.UserInterface"):
+
+            return self.user_interface.get()
+
+        if parameter.startswith("Device.LANConfigSecurity"):
+
+            return self.lan_security.get()
+
+        if parameter.startswith("Device.Hosts"):
+
+            return self.hosts.get()
+
+        if parameter.startswith("Device.Users"):
+
+            return self.users.get()
+
+        if parameter.startswith("Device.SoftwareModules"):
+
+            return self.software_modules.get()
+
+        if parameter.startswith("Device.InterfaceStack"):
+
+            return self.interface_stack.get()
+
+        if parameter.startswith("Device.Ethernet"):
+
+            return self.ethernet.get()
+
+        if parameter.startswith("Device.WiFi"):
+
+            return self.wifi.get()
+
+        if parameter.startswith("Device.IP"):
+
+            return self.ip.get()
+
+        if parameter.startswith("Device.Routing"):
+
+            return self.routing.get()
+
+        if parameter.startswith("Device.DNS"):
+
+            return self.dns.get()
+
+        if parameter.startswith("Device.DHCPv4"):
+
+            return self.dhcpv4.get()
+
+        if parameter.startswith("Device.DHCPv6"):
+
+            return self.dhcpv6.get()
+
+        if parameter.startswith("Device.NAT"):
+
+            return self.nat.get()
+
+        if parameter.startswith("Device.Firewall"):
+
+            return self.firewall.get()
+
+        if parameter.startswith("Device.QoS"):
+
+            return self.qos.get()
+
+        if parameter.startswith("Device.Security"):
+
+            return self.security.get()
+
+        return {
+
+            "Error": "Unsupported Parameter",
+
+            "Parameter": parameter
+
+        }
+This follows the dispatch structure already described in your project TXT. 
+Tr181.txt
+ 
+⸻
+ 
+3. Add generic SET
+Immediately below get_parameter():
+    def set_parameter(self, parameter, value):
+
+        parameter = parameter.rstrip(".")
+
+        if parameter.startswith("Device.DeviceInfo"):
+
+            if hasattr(self.device_info, "set"):
+
+                return self.device_info.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.IP"):
+
+            if hasattr(self.ip, "set"):
+
+                return self.ip.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.Ethernet"):
+
+            if hasattr(self.ethernet, "set"):
+
+                return self.ethernet.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.WiFi"):
+
+            if hasattr(self.wifi, "set"):
+
+                return self.wifi.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.Routing"):
+
+            if hasattr(self.routing, "set"):
+
+                return self.routing.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.DNS"):
+
+            if hasattr(self.dns, "set"):
+
+                return self.dns.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.DHCPv4"):
+
+            if hasattr(self.dhcpv4, "set"):
+
+                return self.dhcpv4.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.NAT"):
+
+            if hasattr(self.nat, "set"):
+
+                return self.nat.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.Firewall"):
+
+            if hasattr(self.firewall, "set"):
+
+                return self.firewall.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.QoS"):
+
+            if hasattr(self.qos, "set"):
+
+                return self.qos.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        if parameter.startswith("Device.Security"):
+
+            if hasattr(self.security, "set"):
+
+                return self.security.set(
+
+                    parameter,
+
+                    value
+
+                )
+
+            return False
+
+        return False
+This is deliberately using hasattr() because your source shows that some modules already have SET implementations while others are still GET-only. For example, your NAT module has explicit enable/disable operations, while the documented Routing and Firewall SET implementations are currently placeholders. 
+Tr181.txt
+ 
+⸻
+ 
+4. Update 
+usp_agent.py
+Your current Agent already receives MQTT messages and dispatches GET, SET, and OPERATE. 
+Tr181.txt
+Add:
+from tr181_operations import TR181Operations
+Then in __init__():
+self.model = TR181Model()
+
+self.operations = TR181Operations(
+
+    self.model,
+
+    notify_callback=self.publish_notification
+
+)
+ 
+⸻
+ 
+5. Replace the request dispatcher
+Your current code checks:
+GET
+SET
+OPERATE
+Tr181.txt
+Change the dispatcher to:
+def on_message(
+
+    self,
+
+    client,
+
+    userdata,
+
+    msg
+
+):
+
+    try:
+
+        request = json.loads(
+
+            msg.payload.decode()
+
+        )
+
+    except Exception as e:
+
+        print(
+
+            "Invalid JSON:",
+
+            e
+
+        )
+
+        return
+
+    message_type = request.get(
+
+        "messageType"
+
+    )
+
+    print("--------------------------------")
+
+    print("Received Request")
+
+    print(json.dumps(
+
+        request,
+
+        indent=4
+
+    ))
+
+    print("--------------------------------")
+
+    # ==================================================
+    # GET
+    # ==================================================
+
+    if message_type == "GET":
+
+        self.handle_get(request)
+
+    # ==================================================
+    # GET BULK
+    # ==================================================
+
+    elif message_type == "GET_BULK":
+
+        self.handle_get_bulk(request)
+
+    # ==================================================
+    # SET
+    # ==================================================
+
+    elif message_type == "SET":
+
+        self.handle_set(request)
+
+    # ==================================================
+    # SUBSCRIBE
+    # ==================================================
+
+    elif message_type == "SUBSCRIBE":
+
+        self.handle_subscribe(request)
+
+    # ==================================================
+    # UNSUBSCRIBE
+    # ==================================================
+
+    elif message_type == "UNSUBSCRIBE":
+
+        self.handle_unsubscribe(request)
+
+    # ==================================================
+    # OPERATE
+    # ==================================================
+
+    elif message_type == "OPERATE":
+
+        self.handle_operate(request)
+
+    else:
+
+        print(
+
+            "Unsupported Message:",
+
+            message_type
+
+        )
+ 
+⸻
+ 
+6. GET handler
+def handle_get(self, request):
+
+    parameter = request.get(
+
+        "parameter"
+
+    )
+
+    response = self.operations.get(
+
+        parameter
+
+    )
+
+    self.publish_response(
+
+        response
+
+    )
+ 
+⸻
+ 
+7. GET BULK handler
+def handle_get_bulk(self, request):
+
+    parameters = request.get(
+
+        "parameters",
+
+        []
+
+    )
+
+    response = self.operations.get_bulk(
+
+        parameters
+
+    )
+
+    self.publish_response(
+
+        response
+
+    )
+Controller sends:
+{
+    "messageType": "GET_BULK",
+    "parameters": [
+        "Device.DeviceInfo",
+        "Device.WiFi",
+        "Device.Ethernet",
+        "Device.IP",
+        "Device.Routing",
+        "Device.DNS",
+        "Device.NAT",
+        "Device.Firewall"
+    ]
+}
+ 
+⸻
+ 
+8. SET handler
+def handle_set(self, request):
+
+    parameter = request.get(
+
+        "parameter"
+
+    )
+
+    value = request.get(
+
+        "value"
+
+    )
+
+    response = self.operations.set(
+
+        parameter,
+
+        value
+
+    )
+
+    self.publish_response(
+
+        response
+
+    )
+ 
+⸻
+ 
+9. SUBSCRIBE / NOTIFY
+Controller:
+{
+    "messageType": "SUBSCRIBE",
+    "parameters": [
+        "Device.WiFi",
+        "Device.Ethernet",
+        "Device.IP"
+    ],
+    "interval": 5
+}
+Agent:
+def handle_subscribe(self, request):
+
+    parameters = request.get(
+
+        "parameters",
+
+        []
+
+    )
+
+    interval = request.get(
+
+        "interval",
+
+        5
+
+    )
+
+    response = self.operations.subscribe(
+
+        parameters,
+
+        interval
+
+    )
+
+    self.publish_response(
+
+        response
+
+    )
+Unsubscribe:
+def handle_unsubscribe(self, request):
+
+    subscription_id = request.get(
+
+        "subscriptionId"
+
+    )
+
+    response = self.operations.unsubscribe(
+
+        subscription_id
+
+    )
+
+    self.publish_response(
+
+        response
+
+    )
+ 
+⸻
+ 
+10. Add the notification callback
+Inside USPAgent:
+def publish_notification(self, notification):
+
+    self.client.publish(
+
+        NOTIFY_TOPIC,
+
+        json.dumps(notification)
+
+    )
+
+    print("--------------------------------")
+
+    print("NOTIFY Published")
+
+    print(json.dumps(
+
+        notification,
+
+        indent=4
+
+    ))
+
+    print("--------------------------------")
+This replaces the old behavior where your Agent continuously published the entire TR-181 model every five seconds. Your existing TXT describes that old periodic behavior. 
+Tr181.txt
+Now notification is subscription-driven:
+Controller
+     │
+     │ SUBSCRIBE
+     │
+     ▼
+Raspberry Pi
+     │
+     │ monitor
+     ▼
+TR-181 parameter
+     │
+     │ changed?
+     ▼
+NOTIFY
+     │
+     ▼
+MQTT
+     │
+     ▼
+Controller
+ 
+⸻
+ 
+11. Now you have all four
+GET
+{
+    "messageType": "GET",
+    "parameter": "Device.WiFi"
+}
+SET
+{
+    "messageType": "SET",
+    "parameter": "Device.WiFi.Radio.1.Enable",
+    "value": false
+}
+GET BULK
+{
+    "messageType": "GET_BULK",
+    "parameters": [
+        "Device.DeviceInfo",
+        "Device.WiFi",
+        "Device.Ethernet",
+        "Device.IP",
+        "Device.Routing",
+        "Device.DNS",
+        "Device.DHCPv4",
+        "Device.NAT",
+        "Device.Firewall",
+        "Device.QoS",
+        "Device.Security"
+    ]
+}
+NOTIFY
+{
+    "messageType": "SUBSCRIBE",
+    "parameters": [
+        "Device.WiFi",
+        "Device.Ethernet",
+        "Device.IP"
+    ],
+    "interval": 5
+}
+Then if a value changes:
+{
+    "messageType": "NOTIFY",
+    "event": "ValueChange",
+    "subscriptionId": "1",
+    "parameter": "Device.WiFi",
+    "oldValue": {},
+    "newValue": {}
+}
+ 
+⸻
+ 
+One important distinction
+This now gives you the TR-181 ↔ TR-369 separation you asked for:
+TR-181
+│
+├── DeviceInfo
+├── Ethernet
+├── WiFi
+├── IP
+├── Routing
+├── DNS
+├── DHCPv4
+├── DHCPv6
+├── NAT
+├── Firewall
+├── QoS
+└── Security
+       ▲
+       │
+       │ TR-181 API
+       │
+TR-369 USP Agent
+│
+├── GET
+├── SET
+├── GET-BULK
+├── SUBSCRIBE
+└── NOTIFY
+       ▲
+       │
+       │ MQTT
+       │
+MQTT Broker
+       ▲
+       │
+USP Controller
+Your source already describes MQTT as the transport between the Controller and USP Agent, and the TR-181 model as the device-data layer.
+This is the implementation direction I recommend for the complete current parameter set. We can then test it first with Device.WiFi.Radio.1.Enable, exactly as we already did locally, and then test the same generic engine against DeviceInfo, Ethernet, IP, Routing, DNS, DHCPv4, NAT, Firewall, QoS, and Security.
