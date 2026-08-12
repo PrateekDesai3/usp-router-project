@@ -1,0 +1,429 @@
+New
+
+
+Yes. Now that GET is working, let’s add all three operations in the same MQTT architecture:
+	1.	GET – Controller asks Raspberry Pi for a parameter.
+	2.	SET – Controller changes a parameter on Raspberry Pi.
+	3.	NOTIFY – Raspberry Pi sends a notification to the Controller.
+We’ll keep your current JSON/MQTT architecture unchanged for now.
+ 
+⸻
+ 
+1. 
+tr181_model.py
+— GET + SET + NOTIFY
+Your current get_parameter() is working. Keep it.
+Your set_parameter() should use the same self.data model, instead of the older self.device_info, self.ip, etc. approach.
+Use these functions inside TR181Model:
+def get_parameter(self, path):
+
+    path = path.rstrip(".")
+
+    try:
+        if path == "Device":
+            return self.data["Device"]
+
+        if path.startswith("Device."):
+            path = path[len("Device."):]
+
+        keys = path.split(".")
+        node = self.data["Device"]
+
+        for key in keys:
+            if isinstance(node, dict) and key in node:
+                node = node[key]
+            else:
+                raise KeyError(
+                    f"Parameter not found: Device.{path}"
+                )
+
+        return node
+
+    except Exception as e:
+        raise Exception(str(e))
+
+
+def set_parameter(self, path, value):
+
+    path = path.rstrip(".")
+
+    try:
+        if not path.startswith("Device."):
+            raise ValueError("Parameter must start with Device.")
+
+        path = path[len("Device."):]
+
+        keys = path.split(".")
+
+        if not keys:
+            raise ValueError("Invalid parameter path")
+
+        node = self.data["Device"]
+
+        for key in keys[:-1]:
+            if isinstance(node, dict) and key in node:
+                node = node[key]
+            else:
+                raise KeyError(
+                    f"Parameter not found: Device.{path}"
+                )
+
+        parameter_name = keys[-1]
+
+        if parameter_name not in node:
+            raise KeyError(
+                f"Parameter not found: Device.{path}"
+            )
+
+        node[parameter_name] = value
+
+        return {
+            "Status": "Success",
+            "Parameter": "Device." + path,
+            "Value": value
+        }
+
+    except Exception as e:
+
+        return {
+            "Status": "Failed",
+            "Parameter": "Device." + path,
+            "Error": str(e)
+        }
+
+
+def notify(self):
+
+    return self.data["Device"]
+ 
+⸻
+ 
+2. Important: choose a parameter that can be SET
+For testing, don’t try to change something like CPU temperature.
+Use something simple such as:
+Device.DeviceInfo.Description
+Currently you have:
+Description = TR181 Virtual Router
+We can change it to:
+Description = My Raspberry Pi Router
+ 
+⸻
+ 
+3. Raspberry Pi 
+subscriber.py
+Your subscriber currently receives:
+router/usp/request
+You need to handle GET and SET.
+Inside your MQTT message callback, use this structure.
+def on_message(client, userdata, msg):
+
+    print("\n================================")
+    print("MQTT REQUEST RECEIVED")
+    print("================================")
+
+    print("Topic:", msg.topic)
+
+    payload = msg.payload.decode()
+
+    print("Payload:", payload)
+
+    try:
+
+        request = json.loads(payload)
+
+        print("\nParsed request:")
+        print(json.dumps(request, indent=4))
+
+        operation = request.get("messageType")
+
+        print("\nOperation:", operation)
+
+        # =========================
+        # GET
+        # =========================
+
+        if operation == "GET":
+
+            parameter = request.get("parameter")
+
+            print("GET parameter:", parameter)
+
+            try:
+
+                value = model.get_parameter(parameter)
+
+                response = {
+                    "messageType": "GET_RESPONSE",
+                    "parameter": parameter,
+                    "value": value,
+                    "success": True
+                }
+
+            except Exception as e:
+
+                response = {
+                    "messageType": "GET_RESPONSE",
+                    "parameter": parameter,
+                    "success": False,
+                    "error": str(e)
+                }
+
+            client.publish(
+                "router/usp/response",
+                json.dumps(response)
+            )
+
+            print("\n================================")
+            print("MQTT RESPONSE")
+            print("================================")
+
+            print(json.dumps(response, indent=4))
+
+        # =========================
+        # SET
+        # =========================
+
+        elif operation == "SET":
+
+            parameter = request.get("parameter")
+            value = request.get("value")
+
+            print("SET parameter:", parameter)
+            print("SET value:", value)
+
+            try:
+
+                result = model.set_parameter(
+                    parameter,
+                    value
+                )
+
+                success = result.get("Status") == "Success"
+
+                response = {
+                    "messageType": "SET_RESPONSE",
+                    "parameter": parameter,
+                    "value": value,
+                    "success": success,
+                    "result": result
+                }
+
+            except Exception as e:
+
+                response = {
+                    "messageType": "SET_RESPONSE",
+                    "parameter": parameter,
+                    "value": value,
+                    "success": False,
+                    "error": str(e)
+                }
+
+            client.publish(
+                "router/usp/response",
+                json.dumps(response)
+            )
+
+            print("\n================================")
+            print("MQTT RESPONSE")
+            print("================================")
+
+            print(json.dumps(response, indent=4))
+
+    except Exception as e:
+
+        print("Error processing MQTT message:", e)
+Make sure above this you have:
+import json
+and:
+model = TR181Model()
+ 
+⸻
+ 
+4. Controller — add SET
+Your controller already successfully does:
+GET Device.DeviceInfo
+Add a function:
+def send_set_request(parameter, value):
+
+    request = {
+        "messageType": "SET",
+        "parameter": parameter,
+        "value": value
+    }
+
+    print("\nSending SET request:")
+    print(json.dumps(request, indent=4))
+
+    client.publish(
+        "router/usp/request",
+        json.dumps(request)
+    )
+
+    print("\nSET request sent.")
+Then test it with:
+send_set_request(
+    "Device.DeviceInfo.Description",
+    "My Raspberry Pi Router"
+)
+ 
+⸻
+ 
+5. Controller — add NOTIFY subscription
+Your controller already shows:
+Subscribed to responses
+Subscribed to notifications
+So you likely already have:
+client.subscribe("router/usp/response")
+client.subscribe("router/usp/notification")
+The callback should handle notifications:
+if msg.topic == "router/usp/notification":
+
+    print("\n================================")
+    print("NOTIFICATION RECEIVED")
+    print("================================")
+
+    payload = msg.payload.decode()
+
+    print(payload)
+ 
+⸻
+ 
+6. Raspberry Pi — send NOTIFY
+For your current custom implementation, add this function:
+def send_notification(client, parameter, value):
+
+    notification = {
+        "messageType": "NOTIFY",
+        "parameter": parameter,
+        "value": value
+    }
+
+    print("\n================================")
+    print("MQTT NOTIFICATION")
+    print("================================")
+
+    print(json.dumps(notification, indent=4))
+
+    client.publish(
+        "router/usp/notification",
+        json.dumps(notification)
+    )
+ 
+⸻
+ 
+7. Test NOTIFY
+For example, after the Raspberry Pi connects to MQTT, you can test:
+send_notification(
+    client,
+    "Device.DeviceInfo.Description",
+    model.get_parameter(
+        "Device.DeviceInfo.Description"
+    )
+)
+The Raspberry Pi publishes:
+router/usp/notification
+with:
+{
+    "messageType": "NOTIFY",
+    "parameter": "Device.DeviceInfo.Description",
+    "value": "TR181 Virtual Router"
+}
+The Windows controller should display:
+================================
+NOTIFICATION RECEIVED
+================================
+
+{
+    "messageType": "NOTIFY",
+    "parameter": "Device.DeviceInfo.Description",
+    "value": "TR181 Virtual Router"
+}
+ 
+⸻
+ 
+8. Complete test flow
+Now your project becomes:
+                    MQTT BROKER
+                       :1883
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+              ▼                     ▼
+       WINDOWS CONTROLLER      RASPBERRY PI
+              │                     │
+              │                     │
+              │ GET                 │
+              ├────────────────────►│
+              │                     │
+              │◄────────────────────┤
+              │ GET_RESPONSE        │
+              │                     │
+              │ SET                 │
+              ├────────────────────►│
+              │                     │
+              │◄────────────────────┤
+              │ SET_RESPONSE        │
+              │                     │
+              │                     │
+              │◄────────────────────┤
+              │ NOTIFY              │
+              │                     │
+Test 1 — GET
+Controller:
+{
+    "messageType": "GET",
+    "parameter": "Device.DeviceInfo.Description"
+}
+Response:
+{
+    "messageType": "GET_RESPONSE",
+    "parameter": "Device.DeviceInfo.Description",
+    "value": "TR181 Virtual Router",
+    "success": true
+}
+Test 2 — SET
+Controller:
+{
+    "messageType": "SET",
+    "parameter": "Device.DeviceInfo.Description",
+    "value": "My Raspberry Pi Router"
+}
+Response:
+{
+    "messageType": "SET_RESPONSE",
+    "parameter": "Device.DeviceInfo.Description",
+    "value": "My Raspberry Pi Router",
+    "success": true
+}
+Test 3 — GET again
+Controller:
+{
+    "messageType": "GET",
+    "parameter": "Device.DeviceInfo.Description"
+}
+Now response should be:
+{
+    "messageType": "GET_RESPONSE",
+    "parameter": "Device.DeviceInfo.Description",
+    "value": "My Raspberry Pi Router",
+    "success": true
+}
+This proves SET actually changed the TR-181 data model.
+Test 4 — NOTIFY
+Raspberry Pi:
+{
+    "messageType": "NOTIFY",
+    "parameter": "Device.DeviceInfo.Description",
+    "value": "My Raspberry Pi Router"
+}
+Controller receives it.
+ 
+⸻
+ 
+One important distinction
+What we’re implementing here is your current custom JSON-over-MQTT test architecture:
+JSON + MQTT + TR181Model
+It is not yet the official Broadband Forum USP protobuf wire format.
+That’s fine for this stage. First get these three operations working end-to-end:
+GET → SET → NOTIFY
+Then we can move the same operations to the official USP Record / USP Message protobuf format when you’re ready.
