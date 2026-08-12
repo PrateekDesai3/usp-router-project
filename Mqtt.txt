@@ -1,0 +1,859 @@
+New
+
+import json
+import paho.mqtt.client as mqtt
+
+from app.tr181.model import TR181Model
+from app.tr181.operations import TR181Operations
+
+
+# ============================================================
+# MQTT CONFIGURATION
+# ============================================================
+
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+
+REQUEST_TOPIC = "router/usp/request"
+RESPONSE_TOPIC = "router/usp/response"
+NOTIFY_TOPIC = "router/usp/notify"
+
+CLIENT_ID = "usp-agent"
+
+
+# ============================================================
+# USP SUBSCRIBER
+# ============================================================
+
+class USPSubscriber:
+
+    def __init__(self):
+
+        # ----------------------------------------------------
+        # MQTT CLIENT
+        # ----------------------------------------------------
+
+        self.client = mqtt.Client(
+            client_id=CLIENT_ID
+        )
+
+        # ----------------------------------------------------
+        # TR-181 MODEL
+        # ----------------------------------------------------
+
+        self.model = TR181Model()
+
+        # ----------------------------------------------------
+        # TR-369 OPERATION LAYER
+        # ----------------------------------------------------
+
+        self.operations = TR181Operations(
+            self.model,
+            notify_callback=self.publish_notification
+        )
+
+        # ----------------------------------------------------
+        # MQTT CALLBACKS
+        # ----------------------------------------------------
+
+        self.client.on_connect = self.on_connect
+
+        self.client.on_message = self.on_message
+
+        self.client.on_disconnect = self.on_disconnect
+
+    # ========================================================
+    # CONNECT TO MQTT BROKER
+    # ========================================================
+
+    def connect(self):
+
+        print("--------------------------------")
+        print("USP Agent MQTT Subscriber")
+        print("--------------------------------")
+
+        print(
+            "Connecting to MQTT broker:",
+            MQTT_BROKER,
+            MQTT_PORT
+        )
+
+        try:
+
+            self.client.connect(
+                MQTT_BROKER,
+                MQTT_PORT,
+                keepalive=60
+            )
+
+        except Exception as e:
+
+            print(
+                "MQTT connection failed:",
+                e
+            )
+
+            return
+
+        print(
+            "Starting MQTT loop..."
+        )
+
+        self.client.loop_forever()
+
+    # ========================================================
+    # MQTT CONNECT CALLBACK
+    # ========================================================
+
+    def on_connect(
+        self,
+        client,
+        userdata,
+        flags,
+        rc
+    ):
+
+        if rc == 0:
+
+            print(
+                "Connected to MQTT broker"
+            )
+
+            # ----------------------------------------------
+            # Listen for Controller requests
+            # ----------------------------------------------
+
+            result = client.subscribe(
+                REQUEST_TOPIC,
+                qos=1
+            )
+
+            if result[0] == mqtt.MQTT_ERR_SUCCESS:
+
+                print(
+                    "Subscribed to:",
+                    REQUEST_TOPIC
+                )
+
+            else:
+
+                print(
+                    "Failed to subscribe:",
+                    REQUEST_TOPIC
+                )
+
+        else:
+
+            print(
+                "MQTT connection failed"
+            )
+
+            print(
+                "Return code:",
+                rc
+            )
+
+    # ========================================================
+    # MQTT DISCONNECT
+    # ========================================================
+
+    def on_disconnect(
+        self,
+        client,
+        userdata,
+        rc
+    ):
+
+        print(
+            "Disconnected from MQTT broker"
+        )
+
+        print(
+            "Return code:",
+            rc
+        )
+
+    # ========================================================
+    # RECEIVE MQTT MESSAGE
+    # ========================================================
+
+    def on_message(
+        self,
+        client,
+        userdata,
+        msg
+    ):
+
+        print()
+        print("================================")
+        print("MQTT REQUEST RECEIVED")
+        print("================================")
+
+        print(
+            "Topic:",
+            msg.topic
+        )
+
+        try:
+
+            payload = msg.payload.decode(
+                "utf-8"
+            )
+
+            print(
+                "Payload:",
+                payload
+            )
+
+        except Exception as e:
+
+            print(
+                "Unable to decode MQTT payload:",
+                e
+            )
+
+            return
+
+        # ----------------------------------------------------
+        # Convert JSON
+        # ----------------------------------------------------
+
+        try:
+
+            request = json.loads(
+                payload
+            )
+
+        except json.JSONDecodeError as e:
+
+            print(
+                "Invalid JSON:",
+                e
+            )
+
+            self.publish_response({
+
+                "messageType": "ERROR",
+
+                "success": False,
+
+                "error": "Invalid JSON"
+
+            })
+
+            return
+
+        print()
+        print("Parsed request:")
+
+        print(
+            json.dumps(
+                request,
+                indent=4
+            )
+        )
+
+        # ----------------------------------------------------
+        # Dispatch request
+        # ----------------------------------------------------
+
+        response = self.handle_request(
+            request
+        )
+
+        # ----------------------------------------------------
+        # Send response
+        # ----------------------------------------------------
+
+        if response is not None:
+
+            self.publish_response(
+                response
+            )
+
+    # ========================================================
+    # REQUEST DISPATCHER
+    # ========================================================
+
+    def handle_request(
+        self,
+        request
+    ):
+
+        message_type = request.get(
+            "messageType"
+        )
+
+        print()
+        print(
+            "Operation:",
+            message_type
+        )
+
+        # ====================================================
+        # GET
+        # ====================================================
+
+        if message_type == "GET":
+
+            return self.handle_get(
+                request
+            )
+
+        # ====================================================
+        # GET BULK
+        # ====================================================
+
+        elif message_type == "GET_BULK":
+
+            return self.handle_get_bulk(
+                request
+            )
+
+        # ====================================================
+        # SET
+        # ====================================================
+
+        elif message_type == "SET":
+
+            return self.handle_set(
+                request
+            )
+
+        # ====================================================
+        # SUBSCRIBE
+        # ====================================================
+
+        elif message_type == "SUBSCRIBE":
+
+            return self.handle_subscribe(
+                request
+            )
+
+        # ====================================================
+        # UNSUBSCRIBE
+        # ====================================================
+
+        elif message_type == "UNSUBSCRIBE":
+
+            return self.handle_unsubscribe(
+                request
+            )
+
+        # ====================================================
+        # OPERATE
+        # ====================================================
+
+        elif message_type == "OPERATE":
+
+            return self.handle_operate(
+                request
+            )
+
+        # ====================================================
+        # UNKNOWN OPERATION
+        # ====================================================
+
+        else:
+
+            print(
+                "Unsupported operation:",
+                message_type
+            )
+
+            return {
+
+                "messageType": "ERROR",
+
+                "success": False,
+
+                "error":
+                    "Unsupported messageType: "
+                    + str(message_type)
+
+            }
+
+    # ========================================================
+    # GET
+    # ========================================================
+
+    def handle_get(
+        self,
+        request
+    ):
+
+        parameter = request.get(
+            "parameter"
+        )
+
+        if not parameter:
+
+            return {
+
+                "messageType": "GET_RESPONSE",
+
+                "success": False,
+
+                "error":
+                    "Missing parameter"
+
+            }
+
+        print()
+        print(
+            "GET parameter:",
+            parameter
+        )
+
+        try:
+
+            response = self.operations.get(
+                parameter
+            )
+
+            return response
+
+        except Exception as e:
+
+            return {
+
+                "messageType": "GET_RESPONSE",
+
+                "parameter": parameter,
+
+                "success": False,
+
+                "error": str(e)
+
+            }
+
+    # ========================================================
+    # GET BULK
+    # ========================================================
+
+    def handle_get_bulk(
+        self,
+        request
+    ):
+
+        parameters = request.get(
+            "parameters",
+            []
+        )
+
+        if not parameters:
+
+            return {
+
+                "messageType":
+                    "GET_BULK_RESPONSE",
+
+                "success": False,
+
+                "error":
+                    "No parameters provided"
+
+            }
+
+        print()
+        print(
+            "GET BULK parameters:"
+        )
+
+        for parameter in parameters:
+
+            print(
+                "  ",
+                parameter
+            )
+
+        try:
+
+            response = self.operations.get_bulk(
+                parameters
+            )
+
+            return response
+
+        except Exception as e:
+
+            return {
+
+                "messageType":
+                    "GET_BULK_RESPONSE",
+
+                "success": False,
+
+                "error": str(e)
+
+            }
+
+    # ========================================================
+    # SET
+    # ========================================================
+
+    def handle_set(
+        self,
+        request
+    ):
+
+        parameter = request.get(
+            "parameter"
+        )
+
+        value = request.get(
+            "value"
+        )
+
+        if not parameter:
+
+            return {
+
+                "messageType":
+                    "SET_RESPONSE",
+
+                "success": False,
+
+                "error":
+                    "Missing parameter"
+
+            }
+
+        print()
+        print(
+            "SET parameter:",
+            parameter
+        )
+
+        print(
+            "New value:",
+            value
+        )
+
+        try:
+
+            response = self.operations.set(
+
+                parameter,
+
+                value
+
+            )
+
+            return response
+
+        except Exception as e:
+
+            return {
+
+                "messageType":
+                    "SET_RESPONSE",
+
+                "parameter":
+                    parameter,
+
+                "success": False,
+
+                "error":
+                    str(e)
+
+            }
+
+    # ========================================================
+    # SUBSCRIBE
+    # ========================================================
+
+    def handle_subscribe(
+        self,
+        request
+    ):
+
+        parameters = request.get(
+            "parameters",
+            []
+        )
+
+        interval = request.get(
+            "interval",
+            5
+        )
+
+        if not parameters:
+
+            return {
+
+                "messageType":
+                    "SUBSCRIBE_RESPONSE",
+
+                "success": False,
+
+                "error":
+                    "No parameters provided"
+
+            }
+
+        print()
+        print(
+            "SUBSCRIBE"
+        )
+
+        print(
+            "Parameters:",
+            parameters
+        )
+
+        print(
+            "Interval:",
+            interval,
+            "seconds"
+        )
+
+        try:
+
+            response = self.operations.subscribe(
+
+                parameters,
+
+                interval
+
+            )
+
+            return response
+
+        except Exception as e:
+
+            return {
+
+                "messageType":
+                    "SUBSCRIBE_RESPONSE",
+
+                "success": False,
+
+                "error":
+                    str(e)
+
+            }
+
+    # ========================================================
+    # UNSUBSCRIBE
+    # ========================================================
+
+    def handle_unsubscribe(
+        self,
+        request
+    ):
+
+        subscription_id = request.get(
+            "subscriptionId"
+        )
+
+        if not subscription_id:
+
+            return {
+
+                "messageType":
+                    "UNSUBSCRIBE_RESPONSE",
+
+                "success": False,
+
+                "error":
+                    "Missing subscriptionId"
+
+            }
+
+        print()
+        print(
+            "UNSUBSCRIBE:",
+            subscription_id
+        )
+
+        try:
+
+            response = self.operations.unsubscribe(
+
+                subscription_id
+
+            )
+
+            return response
+
+        except Exception as e:
+
+            return {
+
+                "messageType":
+                    "UNSUBSCRIBE_RESPONSE",
+
+                "subscriptionId":
+                    subscription_id,
+
+                "success": False,
+
+                "error":
+                    str(e)
+
+            }
+
+    # ========================================================
+    # OPERATE
+    # ========================================================
+
+    def handle_operate(
+        self,
+        request
+    ):
+
+        print()
+        print(
+            "OPERATE received"
+        )
+
+        return {
+
+            "messageType":
+                "OPERATE_RESPONSE",
+
+            "success": False,
+
+            "error":
+                "OPERATE is not implemented yet"
+
+        }
+
+    # ========================================================
+    # PUBLISH RESPONSE
+    # ========================================================
+
+    def publish_response(
+        self,
+        response
+    ):
+
+        try:
+
+            payload = json.dumps(
+                response
+            )
+
+        except Exception as e:
+
+            print(
+                "Unable to encode response:",
+                e
+            )
+
+            return
+
+        print()
+        print("================================")
+        print("MQTT RESPONSE")
+        print("================================")
+
+        print(
+            payload
+        )
+
+        print("================================")
+
+        try:
+
+            result = self.client.publish(
+
+                RESPONSE_TOPIC,
+
+                payload,
+
+                qos=1
+
+            )
+
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+
+                print(
+                    "Failed to publish response:",
+                    result.rc
+                )
+
+        except Exception as e:
+
+            print(
+                "Response publish error:",
+                e
+            )
+
+    # ========================================================
+    # PUBLISH NOTIFICATION
+    # ========================================================
+
+    def publish_notification(
+        self,
+        notification
+    ):
+
+        try:
+
+            payload = json.dumps(
+                notification
+            )
+
+        except Exception as e:
+
+            print(
+                "Unable to encode notification:",
+                e
+            )
+
+            return
+
+        print()
+        print("================================")
+        print("TR-369 NOTIFICATION")
+        print("================================")
+
+        print(
+            payload
+        )
+
+        print("================================")
+
+        try:
+
+            result = self.client.publish(
+
+                NOTIFY_TOPIC,
+
+                payload,
+
+                qos=1
+
+            )
+
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+
+                print(
+                    "Failed to publish notification:",
+                    result.rc
+                )
+
+        except Exception as e:
+
+            print(
+                "Notification publish error:",
+                e
+            )
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+
+    subscriber = USPSubscriber()
+
+    subscriber.connect()
+
+
+if __name__ == "__main__":
+
+    main()
