@@ -1,0 +1,646 @@
+Hu
+
+import json
+import paho.mqtt.client as mqtt
+
+import sys
+import os
+
+sys.path.insert(
+    0,
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
+)
+
+from tr181_model import TR181Model
+from tr181_operations import TR181Operations
+
+
+# ============================================================
+# MQTT CONFIGURATION
+# ============================================================
+
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+
+REQUEST_TOPIC = "router/usp/request"
+RESPONSE_TOPIC = "router/usp/response"
+NOTIFY_TOPIC = "router/usp/notify"
+
+CLIENT_ID = "usp-agent"
+
+
+model = TR181Model()
+
+
+# ============================================================
+# USP SUBSCRIBER
+# ============================================================
+
+class USPSubscriber:
+
+    def __init__(self):
+
+        # ----------------------------------------------------
+        # MQTT CLIENT
+        # ----------------------------------------------------
+
+        self.client = mqtt.Client(
+            client_id=CLIENT_ID
+        )
+
+        # ----------------------------------------------------
+        # TR-181 MODEL
+        # ----------------------------------------------------
+
+        self.model = TR181Model()
+
+        # ----------------------------------------------------
+        # TR-369 OPERATION LAYER
+        # ----------------------------------------------------
+
+        self.operations = TR181Operations(
+            self.model,
+            notify_callback=self.publish_notification
+        )
+
+        # ----------------------------------------------------
+        # MQTT CALLBACKS
+        # ----------------------------------------------------
+
+        self.client.on_connect = self.on_connect
+
+        self.client.on_message = self.on_message
+
+        self.client.on_disconnect = self.on_disconnect
+
+
+    # ========================================================
+    # CONNECT TO MQTT BROKER
+    # ========================================================
+
+    def connect(self):
+
+        print("----------------------------------------")
+        print("USP Agent MQTT Subscriber")
+        print("----------------------------------------")
+
+        print(
+            "Connecting to MQTT broker:",
+            MQTT_BROKER,
+            MQTT_PORT
+        )
+
+        try:
+
+            self.client.connect(
+                MQTT_BROKER,
+                MQTT_PORT,
+                keepalive=60
+            )
+
+        except Exception as e:
+
+            print(
+                "MQTT connection failed:",
+                e
+            )
+
+            return
+
+        print(
+            "Starting MQTT loop..."
+        )
+
+        self.client.loop_forever()
+
+
+    # ========================================================
+    # MQTT CONNECT CALLBACK
+    # ========================================================
+
+    def on_connect(
+        self,
+        client,
+        userdata,
+        flags,
+        rc
+    ):
+
+        if rc == 0:
+
+            print(
+                "Connected to MQTT broker"
+            )
+
+            # ------------------------------------------------
+            # Listen for Controller requests
+            # ------------------------------------------------
+
+            result = client.subscribe(
+                REQUEST_TOPIC,
+                qos=1
+            )
+
+            if result[0] == mqtt.MQTT_ERR_SUCCESS:
+
+                print(
+                    "Subscribed to:",
+                    REQUEST_TOPIC
+                )
+
+            else:
+
+                print(
+                    "Failed to subscribe:",
+                    REQUEST_TOPIC
+                )
+
+        else:
+
+            print(
+                "MQTT connection failed"
+            )
+
+            print(
+                "Return code:",
+                rc
+            )
+
+
+    # ========================================================
+    # MQTT DISCONNECT
+    # ========================================================
+
+    def on_disconnect(
+        self,
+        client,
+        userdata,
+        rc
+    ):
+
+        print(
+            "Disconnected from MQTT broker"
+        )
+
+        print(
+            "Return code:",
+            rc
+        )
+
+
+    # ========================================================
+    # RECEIVE MQTT MESSAGE
+    # ========================================================
+
+    def on_message(
+        self,
+        client,
+        userdata,
+        msg
+    ):
+
+        print()
+
+        print(
+            "========================================"
+        )
+
+        print(
+            "MQTT REQUEST RECEIVED"
+        )
+
+        print(
+            "========================================"
+        )
+
+        print(
+            "Topic:",
+            msg.topic
+        )
+
+        try:
+
+            # ------------------------------------------------
+            # Decode MQTT payload
+            # ------------------------------------------------
+
+            payload = msg.payload.decode(
+                "utf-8"
+            )
+
+            print(
+                "Payload:",
+                payload
+            )
+
+            # ------------------------------------------------
+            # Convert JSON → Python dictionary
+            # ------------------------------------------------
+
+            request = json.loads(
+                payload
+            )
+
+            print()
+
+            print(
+                "Parsed request:"
+            )
+
+            print(
+                json.dumps(
+                    request,
+                    indent=4
+                )
+            )
+
+            # ------------------------------------------------
+            # Extract message type
+            # ------------------------------------------------
+
+            message_type = request.get(
+                "messageType"
+            )
+
+            print()
+
+            print(
+                "Operation:",
+                message_type
+            )
+
+            # =================================================
+            # GET
+            # =================================================
+
+            if message_type == "GET":
+
+                self.handle_get(
+                    request
+                )
+
+            # =================================================
+            # SET
+            # =================================================
+
+            elif message_type == "SET":
+
+                self.handle_set(
+                    request
+                )
+
+            # =================================================
+            # NOTIFY SUBSCRIPTION
+            # =================================================
+
+            elif message_type == "NOTIFY":
+
+                self.handle_notify(
+                    request
+                )
+
+            # =================================================
+            # UNKNOWN OPERATION
+            # =================================================
+
+            else:
+
+                print(
+                    "Unknown message type:",
+                    message_type
+                )
+
+                response = {
+                    "messageType": "ERROR",
+                    "success": False,
+                    "error": "Unsupported messageType",
+                    "request": request
+                }
+
+                self.publish_response(
+                    response
+                )
+
+        except json.JSONDecodeError as e:
+
+            print(
+                "Invalid JSON:",
+                e
+            )
+
+        except Exception as e:
+
+            print(
+                "Error processing MQTT message:",
+                e
+            )
+
+
+    # ========================================================
+    # HANDLE GET
+    # ========================================================
+
+    def handle_get(
+        self,
+        request
+    ):
+
+        parameter = request.get(
+            "parameter"
+        )
+
+        print()
+
+        print(
+            "GET parameter:",
+            parameter
+        )
+
+        try:
+
+            # ------------------------------------------------
+            # Get value from TR-181 model
+            # ------------------------------------------------
+
+            value = self.operations.get_parameter(
+                parameter
+            )
+
+            response = {
+                "messageType": "GET_RESPONSE",
+                "parameter": parameter,
+                "value": value,
+                "success": True
+            }
+
+            print()
+
+            print(
+                "GET RESPONSE"
+            )
+
+            print(
+                json.dumps(
+                    response,
+                    indent=4
+                )
+            )
+
+            self.publish_response(
+                response
+            )
+
+        except Exception as e:
+
+            response = {
+                "messageType": "GET_RESPONSE",
+                "parameter": parameter,
+                "success": False,
+                "error": str(e)
+            }
+
+            print(
+                "GET failed:",
+                e
+            )
+
+            self.publish_response(
+                response
+            )
+
+
+    # ========================================================
+    # HANDLE SET
+    # ========================================================
+
+    def handle_set(
+        self,
+        request
+    ):
+
+        parameter = request.get(
+            "parameter"
+        )
+
+        value = request.get(
+            "value"
+        )
+
+        print()
+
+        print(
+            "SET parameter:",
+            parameter
+        )
+
+        print(
+            "SET value:",
+            value
+        )
+
+        try:
+
+            # ------------------------------------------------
+            # Set value in TR-181 model
+            # ------------------------------------------------
+
+            result = self.operations.set_parameter(
+                parameter,
+                value
+            )
+
+            response = {
+                "messageType": "SET_RESPONSE",
+                "parameter": parameter,
+                "value": value,
+                "success": True
+            }
+
+            # If the operation layer returns useful data,
+            # include it in the response.
+            if result is not None:
+                response["result"] = result
+
+            print()
+
+            print(
+                "SET RESPONSE"
+            )
+
+            print(
+                json.dumps(
+                    response,
+                    indent=4
+                )
+            )
+
+            self.publish_response(
+                response
+            )
+
+            # ------------------------------------------------
+            # Send notification after successful SET
+            # ------------------------------------------------
+
+            self.publish_notification(
+                parameter,
+                value
+            )
+
+        except Exception as e:
+
+            response = {
+                "messageType": "SET_RESPONSE",
+                "parameter": parameter,
+                "value": value,
+                "success": False,
+                "error": str(e)
+            }
+
+            print(
+                "SET failed:",
+                e
+            )
+
+            self.publish_response(
+                response
+            )
+
+
+    # ========================================================
+    # HANDLE NOTIFY
+    # ========================================================
+
+    def handle_notify(
+        self,
+        request
+    ):
+
+        parameter = request.get(
+            "parameter"
+        )
+
+        print()
+
+        print(
+            "NOTIFY request received"
+        )
+
+        print(
+            "Parameter:",
+            parameter
+        )
+
+        response = {
+            "messageType": "NOTIFY_RESPONSE",
+            "parameter": parameter,
+            "success": True
+        }
+
+        self.publish_response(
+            response
+        )
+
+
+    # ========================================================
+    # SEND RESPONSE
+    # ========================================================
+
+    def publish_response(
+        self,
+        response
+    ):
+
+        print()
+
+        print(
+            "Publishing response to:",
+            RESPONSE_TOPIC
+        )
+
+        payload = json.dumps(
+            response
+        )
+
+        self.client.publish(
+            RESPONSE_TOPIC,
+            payload,
+            qos=1
+        )
+
+        print(
+            "Response sent."
+        )
+
+
+    # ========================================================
+    # SEND NOTIFICATION
+    # ========================================================
+
+    def publish_notification(
+        self,
+        parameter,
+        value
+    ):
+
+        notification = {
+            "messageType": "NOTIFY",
+            "parameter": parameter,
+            "value": value
+        }
+
+        print()
+
+        print(
+            "========================================"
+        )
+
+        print(
+            "USP NOTIFICATION"
+        )
+
+        print(
+            "========================================"
+        )
+
+        print(
+            json.dumps(
+                notification,
+                indent=4
+            )
+        )
+
+        self.client.publish(
+            NOTIFY_TOPIC,
+            json.dumps(notification),
+            qos=1
+        )
+
+        print(
+            "Notification sent to:",
+            NOTIFY_TOPIC
+        )
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+
+    subscriber = USPSubscriber()
+
+    subscriber.connect()
+
+
+# ============================================================
+# PROGRAM ENTRY POINT
+# ============================================================
+
+if __name__ == "__main__":
+
+    main()
