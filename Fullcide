@@ -1,0 +1,799 @@
+Yes. Let’s finish it properly using your Full(1).txt as the parameter source. I will not limit it to DeviceInfo. Your file contains the complete Device tree, including WiFi, Ethernet, IP, Routing, QoS, MQTT, USP, Time, etc. Full.txt
+
+The clean setup is:
+
+Full(1).txt
+     ↓
+tr181_data.py
+     ↓
+TR181Model
+     ↓
+TR181Operations
+ ┌──────┬─────────────┬─────┬────────┐
+ GET    GET PARAMETERS SET   NOTIFY
+ └──────┴─────────────┴─────┴────────┘
+              ↓
+            MQTT
+              ↓
+         controller.py
+
+1. Rename your Full(1).txt
+
+On the Raspberry Pi, put that file in the same directory as your TR-181 code and rename it:
+
+mv "Full(1).txt" tr181_data.py
+
+Do not modify the contents.
+
+It already contains:
+
+TR181_SAMPLE_DATA = {
+    "Device": {
+        ...
+    }
+}
+
+That becomes our complete parameter source. Full.txt
+
+⸻
+
+2. tr181_model.py
+
+Replace the parameter-access portion of your model with this.
+
+from tr181_data import TR181_SAMPLE_DATA
+class TR181Model:
+    def __init__(self):
+        self.data = TR181_SAMPLE_DATA
+    # ==========================================================
+    # NORMALIZE PATH
+    # ==========================================================
+    def normalize_path(self, path):
+        path = path.strip()
+        if path.endswith("."):
+            path = path[:-1]
+        if not path.startswith("Device"):
+            path = "Device." + path
+        return path
+    # ==========================================================
+    # SPLIT PATH
+    # ==========================================================
+    def _split_path(self, path):
+        path = self.normalize_path(path)
+        parts = path.split(".")
+        # Remove Device because self.data already starts at Device
+        if parts[0] == "Device":
+            parts = parts[1:]
+        return parts
+    # ==========================================================
+    # GET NODE
+    # ==========================================================
+    def _get_node(self, path):
+        path = self.normalize_path(path)
+        if path == "Device":
+            return self.data["Device"]
+        parts = self._split_path(path)
+        node = self.data["Device"]
+        for part in parts:
+            # Dictionary
+            if isinstance(node, dict):
+                if part not in node:
+                    raise KeyError(
+                        f"Parameter not found: {path}"
+                    )
+                node = node[part]
+            # List / table instance
+            elif isinstance(node, list):
+                if not part.isdigit():
+                    raise KeyError(
+                        f"Expected instance number in path: {path}"
+                    )
+                index = int(part) - 1
+                if index < 0 or index >= len(node):
+                    raise KeyError(
+                        f"Instance {part} not found: {path}"
+                    )
+                node = node[index]
+            else:
+                raise KeyError(
+                    f"Cannot continue through parameter: {path}"
+                )
+        return node
+    # ==========================================================
+    # GET PARAMETER
+    # ==========================================================
+    def get_parameter(self, path):
+        return self._get_node(path)
+    # ==========================================================
+    # SET PARAMETER
+    # ==========================================================
+    def set_parameter(self, path, value):
+        path = self.normalize_path(path)
+        if path == "Device":
+            raise ValueError(
+                "Device cannot be SET directly"
+            )
+        parts = self._split_path(path)
+        node = self.data["Device"]
+        for part in parts[:-1]:
+            if isinstance(node, dict):
+                if part not in node:
+                    raise KeyError(
+                        f"Parameter not found: {path}"
+                    )
+                node = node[part]
+            elif isinstance(node, list):
+                if not part.isdigit():
+                    raise KeyError(
+                        f"Invalid instance: {part}"
+                    )
+                index = int(part) - 1
+                if index < 0 or index >= len(node):
+                    raise KeyError(
+                        f"Instance not found: {part}"
+                    )
+                node = node[index]
+            else:
+                raise KeyError(
+                    f"Cannot traverse parameter: {path}"
+                )
+        last = parts[-1]
+        if isinstance(node, dict):
+            if last not in node:
+                raise KeyError(
+                    f"Parameter not found: {path}"
+                )
+            old_value = node[last]
+            node[last] = value
+            return old_value
+        elif isinstance(node, list):
+            if not last.isdigit():
+                raise KeyError(
+                    f"Invalid list index: {last}"
+                )
+            index = int(last) - 1
+            if index < 0 or index >= len(node):
+                raise KeyError(
+                    f"Instance not found: {last}"
+                )
+            old_value = node[index]
+            node[index] = value
+            return old_value
+        raise KeyError(
+            f"Cannot SET parameter: {path}"
+        )
+    # ==========================================================
+    # GET ALL TR-181 PARAMETERS
+    # ==========================================================
+    def get_all_parameters(self):
+        result = {}
+        def walk(node, path):
+            # Dictionary/object
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    child_path = (
+                        f"{path}.{key}"
+                    )
+                    walk(
+                        value,
+                        child_path
+                    )
+            # Table/object instances
+            elif isinstance(node, list):
+                for index, value in enumerate(
+                    node,
+                    start=1
+                ):
+                    child_path = (
+                        f"{path}.{index}"
+                    )
+                    walk(
+                        value,
+                        child_path
+                    )
+            # Actual parameter value
+            else:
+                result[path] = node
+        walk(
+            self.data["Device"],
+            "Device"
+        )
+        return result
+    # ==========================================================
+    # GET COMPLETE OBJECT
+    # ==========================================================
+    def get_model(self):
+        return self.data
+
+Now the entire Full(1).txt model is accessible through the model.
+
+For example:
+
+Device.WiFi.Radio.1.Enable
+Device.WiFi.SSID.1.SSID
+Device.Ethernet.Interface.1.MACAddress
+Device.IP.Interface.1.IPv4Address.1.IPAddress
+Device.Routing.Router.1.Enable
+Device.QoS.Enable
+Device.MQTT.Status
+
+are all generated from the actual structure rather than manually typed.
+
+⸻
+
+3. tr181_operations.py
+
+Keep your existing notification architecture, but make the operations layer like this.
+
+import copy
+import threading
+import time
+class TR181Operations:
+    def __init__(
+        self,
+        model,
+        notify_callback=None
+    ):
+        self.model = model
+        self.notify_callback = (
+            notify_callback
+        )
+        self.subscriptions = {}
+        self.previous_values = {}
+        self.notify_thread = None
+        self.stop_event = threading.Event()
+    # ==========================================================
+    # PATH NORMALIZATION
+    # ==========================================================
+    def normalize_path(self, path):
+        path = path.strip()
+        if path.endswith("."):
+            path = path[:-1]
+        return path
+    # ==========================================================
+    # GET SINGLE
+    # ==========================================================
+    def get(self, path):
+        path = self.normalize_path(path)
+        try:
+            value = self.model.get_parameter(
+                path
+            )
+            return {
+                "messageType":
+                    "GET_RESPONSE",
+                "parameter":
+                    path,
+                "value":
+                    value,
+                "success":
+                    True
+            }
+        except Exception as e:
+            return {
+                "messageType":
+                    "GET_RESPONSE",
+                "parameter":
+                    path,
+                "success":
+                    False,
+                "error":
+                    str(e)
+            }
+    # ==========================================================
+    # GET PARAMETERS - ALL
+    # ==========================================================
+    def get_parameters(self):
+        try:
+            parameters = (
+                self.model.get_all_parameters()
+            )
+            return {
+                "messageType":
+                    "GET_PARAMETERS_RESPONSE",
+                "parameters":
+                    parameters,
+                "success":
+                    True
+            }
+        except Exception as e:
+            return {
+                "messageType":
+                    "GET_PARAMETERS_RESPONSE",
+                "parameters":
+                    {},
+                "success":
+                    False,
+                "error":
+                    str(e)
+            }
+    # ==========================================================
+    # GET BULK
+    # ==========================================================
+    def get_bulk(self, paths):
+        results = []
+        for path in paths:
+            path = self.normalize_path(
+                path
+            )
+            try:
+                value = (
+                    self.model.get_parameter(
+                        path
+                    )
+                )
+                results.append({
+                    "parameter":
+                        path,
+                    "value":
+                        value,
+                    "success":
+                        True
+                })
+            except Exception as e:
+                results.append({
+                    "parameter":
+                        path,
+                    "success":
+                        False,
+                    "error":
+                        str(e)
+                })
+        return {
+            "messageType":
+                "GET_BULK_RESPONSE",
+            "results":
+                results,
+            "success":
+                True
+        }
+    # ==========================================================
+    # SET
+    # ==========================================================
+    def set(self, path, value):
+        path = self.normalize_path(
+            path
+        )
+        try:
+            old_value = (
+                self.model.get_parameter(
+                    path
+                )
+            )
+            self.model.set_parameter(
+                path,
+                value
+            )
+            return {
+                "messageType":
+                    "SET_RESPONSE",
+                "parameter":
+                    path,
+                "oldValue":
+                    old_value,
+                "value":
+                    value,
+                "success":
+                    True
+            }
+        except Exception as e:
+            return {
+                "messageType":
+                    "SET_RESPONSE",
+                "parameter":
+                    path,
+                "success":
+                    False,
+                "error":
+                    str(e)
+            }
+    # ==========================================================
+    # SUBSCRIBE
+    # ==========================================================
+    def subscribe(
+        self,
+        paths,
+        interval=5
+    ):
+        subscription_id = str(
+            len(self.subscriptions) + 1
+        )
+        paths = [
+            self.normalize_path(p)
+            for p in paths
+        ]
+        self.subscriptions[
+            subscription_id
+        ] = {
+            "paths":
+                paths,
+            "interval":
+                interval,
+            "lastCheck":
+                0,
+            "enabled":
+                True
+        }
+        # Store initial values
+        for path in paths:
+            try:
+                self.previous_values[
+                    path
+                ] = copy.deepcopy(
+                    self.model.get_parameter(
+                        path
+                    )
+                )
+            except Exception as e:
+                print(
+                    "Initial subscription error:",
+                    path,
+                    e
+                )
+        # Start notification thread
+        if self.notify_thread is None:
+            self.stop_event.clear()
+            self.notify_thread = (
+                threading.Thread(
+                    target=self._notification_loop,
+                    daemon=True
+                )
+            )
+            self.notify_thread.start()
+        return {
+            "messageType":
+                "SUBSCRIBE_RESPONSE",
+            "subscriptionId":
+                subscription_id,
+            "paths":
+                paths,
+            "interval":
+                interval,
+            "success":
+                True
+        }
+    # ==========================================================
+    # UNSUBSCRIBE
+    # ==========================================================
+    def unsubscribe(
+        self,
+        subscription_id
+    ):
+        if (
+            subscription_id
+            not in self.subscriptions
+        ):
+            return {
+                "messageType":
+                    "UNSUBSCRIBE_RESPONSE",
+                "subscriptionId":
+                    subscription_id,
+                "success":
+                    False,
+                "error":
+                    "Subscription not found"
+            }
+        del self.subscriptions[
+            subscription_id
+        ]
+        if not self.subscriptions:
+            self.stop_event.set()
+            self.notify_thread = None
+        return {
+            "messageType":
+                "UNSUBSCRIBE_RESPONSE",
+            "subscriptionId":
+                subscription_id,
+            "success":
+                True
+        }
+    # ==========================================================
+    # NOTIFICATION LOOP
+    # ==========================================================
+    def _notification_loop(self):
+        while not self.stop_event.is_set():
+            current_time = time.time()
+            for (
+                subscription_id,
+                subscription
+            ) in list(
+                self.subscriptions.items()
+            ):
+                if not subscription["enabled"]:
+                    continue
+                interval = (
+                    subscription["interval"]
+                )
+                if (
+                    current_time
+                    - subscription["lastCheck"]
+                    < interval
+                ):
+                    continue
+                subscription[
+                    "lastCheck"
+                ] = current_time
+                self._check_subscription(
+                    subscription_id,
+                    subscription
+                )
+            time.sleep(1)
+    # ==========================================================
+    # CHECK CHANGES
+    # ==========================================================
+    def _check_subscription(
+        self,
+        subscription_id,
+        subscription
+    ):
+        for path in subscription["paths"]:
+            try:
+                current_value = copy.deepcopy(
+                    self.model.get_parameter(
+                        path
+                    )
+                )
+                previous_value = (
+                    self.previous_values.get(
+                        path
+                    )
+                )
+                if (
+                    current_value
+                    != previous_value
+                ):
+                    notification = {
+                        "messageType":
+                            "NOTIFY",
+                        "event":
+                            "ValueChange",
+                        "subscriptionId":
+                            subscription_id,
+                        "parameter":
+                            path,
+                        "oldValue":
+                            previous_value,
+                        "newValue":
+                            current_value
+                    }
+                    self.previous_values[
+                        path
+                    ] = copy.deepcopy(
+                        current_value
+                    )
+                    self.publish_notification(
+                        notification
+                    )
+            except Exception as e:
+                print(
+                    "Notification error:",
+                    path,
+                    e
+                )
+    # ==========================================================
+    # PUBLISH NOTIFICATION
+    # ==========================================================
+    def publish_notification(
+        self,
+        notification
+    ):
+        if self.notify_callback:
+            self.notify_callback(
+                notification
+            )
+        else:
+            print(
+                "NOTIFY:",
+                notification
+            )
+
+⸻
+
+4. Change subscriber.py
+
+Your existing subscriber already receives MQTT messages. Add support for GET_PARAMETERS.
+
+Inside your message dispatcher, add:
+
+elif message_type == "GET_PARAMETERS":
+    response = (
+        self.operations.get_parameters()
+    )
+    self.publish_response(
+        response
+    )
+
+You should also have:
+
+elif message_type == "GET":
+    self.handle_get(request)
+elif message_type == "GET_BULK":
+    self.handle_get_bulk(request)
+elif message_type == "SET":
+    self.handle_set(request)
+elif message_type == "SUBSCRIBE":
+    self.handle_subscribe(request)
+elif message_type == "UNSUBSCRIBE":
+    self.handle_unsubscribe(request)
+elif message_type == "GET_PARAMETERS":
+    response = (
+        self.operations.get_parameters()
+    )
+    self.publish_response(
+        response
+    )
+
+⸻
+
+5. Controller: GET ALL every 10 seconds
+
+Your controller should send:
+
+get_parameters_request = {
+    "messageType": "GET_PARAMETERS"
+}
+
+Then:
+
+def send_get_parameters():
+    request = {
+        "messageType":
+            "GET_PARAMETERS"
+    }
+    print()
+    print("========================================")
+    print("GETTING ALL TR-181 PARAMETERS")
+    print("========================================")
+    client.publish(
+        REQUEST_TOPIC,
+        json.dumps(request),
+        qos=1
+    )
+    print(
+        "GET PARAMETERS request sent"
+    )
+
+And run:
+
+def get_parameters_loop():
+    while True:
+        send_get_parameters()
+        time.sleep(10)
+
+Start it after MQTT connects:
+
+thread = threading.Thread(
+    target=get_parameters_loop,
+    daemon=True
+)
+thread.start()
+
+You need:
+
+import threading
+
+⸻
+
+6. Controller receives the result
+
+In your existing on_message() add:
+
+elif message_type == "GET_PARAMETERS_RESPONSE":
+    print()
+    print("========================================")
+    print("ALL TR-181 PARAMETERS")
+    print("========================================")
+    if data.get("success"):
+        parameters = data.get(
+            "parameters",
+            {}
+        )
+        print(
+            "Total parameters:",
+            len(parameters)
+        )
+        for parameter, value in parameters.items():
+            print(
+                f"{parameter} = {value}"
+            )
+    else:
+        print(
+            "GET PARAMETERS FAILED"
+        )
+        print(
+            "Error:",
+            data.get("error")
+        )
+
+Now your controller will receive:
+
+Device.USP.LocalAgent.Enable = True
+Device.USP.LocalAgent.EndpointID = usp-router
+Device.USP.LocalAgent.Controller.1.Enable = True
+Device.USP.LocalAgent.Controller.1.EndpointID = controller
+Device.DeviceInfo.Manufacturer = Dummy Networks
+Device.DeviceInfo.ModelName = Virtual Router
+...
+Device.Ethernet.Interface.1.Enable = True
+Device.Ethernet.Interface.1.Name = eth0
+...
+Device.WiFi.Radio.1.Enable = True
+Device.WiFi.Radio.1.Name = wlan0
+...
+Device.IP.Interface.1.Enable = True
+...
+Device.Routing.Router.1.Enable = True
+...
+Device.QoS.Enable = True
+Device.MQTT.Enable = True
+Device.MQTT.Broker = ...
+...
+
+All in TR-181 parameter path form.
+
+⸻
+
+Final result
+
+You will now have:
+
+GET one
+
+{
+    "messageType": "GET",
+    "parameter": "Device.WiFi.Radio.1.Status"
+}
+
+GET ALL
+
+{
+    "messageType": "GET_PARAMETERS"
+}
+
+This returns every leaf parameter from your Full(1).txt model, not just DeviceInfo.
+
+GET BULK
+
+{
+    "messageType": "GET_BULK",
+    "parameters": [
+        "Device.WiFi.Radio.1.Status",
+        "Device.Ethernet.Interface.1.Status",
+        "Device.IP.Interface.1.Status"
+    ]
+}
+
+SET
+
+{
+    "messageType": "SET",
+    "parameter": "Device.WiFi.Radio.1.Enable",
+    "value": false
+}
+
+NOTIFY
+
+{
+    "messageType": "SUBSCRIBE",
+    "parameters": [
+        "Device.WiFi.Radio.1.Status",
+        "Device.Ethernet.Interface.1.Status",
+        "Device.IP.Interface.1.Status"
+    ],
+    "interval": 5
+}
+
+Then when one changes:
+
+{
+    "messageType": "NOTIFY",
+    "event": "ValueChange",
+    "subscriptionId": "1",
+    "parameter": "Device.WiFi.Radio.1.Status",
+    "oldValue": "Up",
+    "newValue": "Down"
+}
+
+So Full(1).txt becomes the source of the entire TR-181 data model, and you don’t manually maintain a parameter list. Full.txt
+
+One caveat: the Full(1).txt you uploaded is a sample-data Python structure, not a complete Broadband Forum schema with access permissions. Therefore the code above treats every leaf as retrievable and allows SET unless your existing model/handler adds restrictions. The file itself contains fields such as passwords and credentials, so for a production USP implementation you should also mark sensitive/read-only parameters appropriately. Full.txt
