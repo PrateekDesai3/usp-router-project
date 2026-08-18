@@ -1,0 +1,56 @@
+def save_tr181_sample_data():
+    """
+    Persist the current TR181_SAMPLE_DATA dictionary
+    back into this Python file.
+    """
+
+    file_path = __file__
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        source = f.read()
+
+    tree = ast.parse(source)
+
+    target_node = None
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "TR181_SAMPLE_DATA":
+                    target_node = node
+                    break
+
+        if target_node is not None:
+            break
+
+    if target_node is None:
+        raise RuntimeError(
+            "TR181_SAMPLE_DATA definition not found in tr181_defaults.py"
+        )
+
+    lines = source.splitlines(keepends=True)
+
+    start_line = target_node.lineno - 1
+    end_line = target_node.end_lineno
+
+    new_data = (
+        "TR181_SAMPLE_DATA = "
+        + pprint.pformat(
+            TR181_SAMPLE_DATA,
+            indent=4,
+            sort_dicts=False,
+            width=120
+        )
+        + "\n"
+    )
+
+    lines[start_line:end_line] = [new_data]
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    print()
+    print("====================================================")
+    print("TR-181 DATA SAVED TO FILE")
+    print("File:", file_path)
+    print("====================================================")
