@@ -1,0 +1,299 @@
+# ============================================================
+# SET TR-181 PARAMETER
+# ============================================================
+
+def set_tr181_parameter(parameter_path, new_value):
+    """
+    Update an existing TR-181 parameter in TR181_SAMPLE_DATA.
+
+    Example:
+        Device.DeviceInfo.Manufacturer
+        Device.MQTT.Enable
+        Device.WiFi.Radio.0.Enable
+    """
+
+    if not parameter_path:
+        return False, None, "Parameter path is empty"
+
+    parts = parameter_path.split(".")
+
+    if len(parts) < 2:
+        return False, None, "Invalid parameter path"
+
+    current = TR181_SAMPLE_DATA
+
+    try:
+
+        # ----------------------------------------------------
+        # Navigate to parent object
+        # ----------------------------------------------------
+
+        for part in parts[:-1]:
+
+            if isinstance(current, dict):
+
+                if part not in current:
+
+                    return (
+                        False,
+                        None,
+                        f"Object not found: {part}"
+                    )
+
+                current = current[part]
+
+            elif isinstance(current, list):
+
+                try:
+
+                    index = int(part)
+
+                except ValueError:
+
+                    return (
+                        False,
+                        None,
+                        f"Invalid instance index: {part}"
+                    )
+
+                if index < 0 or index >= len(current):
+
+                    return (
+                        False,
+                        None,
+                        f"Instance not found: {part}"
+                    )
+
+                current = current[index]
+
+            else:
+
+                return (
+                    False,
+                    None,
+                    f"Cannot navigate through {part}"
+                )
+
+        # ----------------------------------------------------
+        # Final parameter
+        # ----------------------------------------------------
+
+        parameter_name = parts[-1]
+
+        if not isinstance(current, dict):
+
+            return (
+                False,
+                None,
+                "Invalid parameter structure"
+            )
+
+        if parameter_name not in current:
+
+            return (
+                False,
+                None,
+                f"Parameter not found: {parameter_path}"
+            )
+
+        # ----------------------------------------------------
+        # Existing value
+        # ----------------------------------------------------
+
+        old_value = current[
+            parameter_name
+        ]
+
+        # ----------------------------------------------------
+        # Update
+        # ----------------------------------------------------
+
+        current[
+            parameter_name
+        ] = new_value
+
+        print()
+        print("================================================")
+        print("TR-181 PARAMETER UPDATED")
+        print("================================================")
+        print("Parameter :", parameter_path)
+        print("Old value :", old_value)
+        print("New value :", new_value)
+        print("================================================")
+
+        return (
+            True,
+            old_value,
+            None
+        )
+
+    except Exception as e:
+
+        return (
+            False,
+            None,
+            str(e)
+        )
+
+
+
+# ============================================================
+# SET
+# ============================================================
+
+if message_type == "SET":
+
+    parameter = request.get(
+        "parameter"
+    )
+
+    value = request.get(
+        "value"
+    )
+
+    print()
+    print("================================================")
+    print("SET REQUEST")
+    print("================================================")
+
+    print(
+        "Parameter:",
+        parameter
+    )
+
+    print(
+        "Requested value:",
+        value
+    )
+
+    # --------------------------------------------------------
+    # Validate parameter
+    # --------------------------------------------------------
+
+    if not parameter:
+
+        response = {
+            "messageType": "SET_RESPONSE",
+            "success": False,
+            "error": "Parameter is required"
+        }
+
+        client.publish(
+            RESPONSE_TOPIC,
+            json.dumps(response),
+            qos=1
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # Update Raspberry Pi TR-181 model
+    # --------------------------------------------------------
+
+    success, old_value, error = (
+        set_tr181_parameter(
+            parameter,
+            value
+        )
+    )
+
+    # --------------------------------------------------------
+    # SET FAILED
+    # --------------------------------------------------------
+
+    if not success:
+
+        response = {
+
+            "messageType":
+                "SET_RESPONSE",
+
+            "success":
+                False,
+
+            "parameter":
+                parameter,
+
+            "value":
+                value,
+
+            "error":
+                error
+        }
+
+        client.publish(
+            RESPONSE_TOPIC,
+            json.dumps(response),
+            qos=1
+        )
+
+        print(
+            "SET FAILED:",
+            error
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # SET SUCCESS RESPONSE
+    # --------------------------------------------------------
+
+    response = {
+
+        "messageType":
+            "SET_RESPONSE",
+
+        "success":
+            True,
+
+        "parameter":
+            parameter,
+
+        "oldValue":
+            old_value,
+
+        "value":
+            value
+    }
+
+    client.publish(
+        RESPONSE_TOPIC,
+        json.dumps(response),
+        qos=1
+    )
+
+    print()
+    print(
+        "SET_RESPONSE sent"
+    )
+
+    # --------------------------------------------------------
+    # NOTIFICATION
+    # --------------------------------------------------------
+
+    notification = {
+
+        "messageType":
+            "NOTIFY",
+
+        "parameter":
+            parameter,
+
+        "previousValue":
+            old_value,
+
+        "value":
+            value
+    }
+
+    client.publish(
+        NOTIFY_TOPIC,
+        json.dumps(notification),
+        qos=1
+    )
+
+    print(
+        "NOTIFY sent"
+    )
+
+    return
