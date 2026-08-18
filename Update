@@ -1,0 +1,71 @@
+def save_tr181_data_to_file():
+    """
+    Permanently save the current TR181_SAMPLE_DATA
+    back into tr181_defaults.py.
+    """
+
+    file_path = Path(__file__)
+
+    source = file_path.read_text()
+
+    tree = ast.parse(source)
+
+    target_node = None
+
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "TR181_SAMPLE_DATA":
+                    target_node = node
+                    break
+
+        if target_node is not None:
+            break
+
+    if target_node is None:
+        raise RuntimeError("TR181_SAMPLE_DATA definition not found")
+
+    new_data = pprint.pformat(
+        TR181_SAMPLE_DATA,
+        sort_dicts=False,
+        width=120
+    )
+
+    lines = source.splitlines(keepends=True)
+
+    start_line = target_node.lineno - 1
+    end_line = target_node.end_lineno
+
+    new_assignment = "TR181_SAMPLE_DATA = " + new_data + "\n"
+
+    lines[start_line:end_line] = [new_assignment]
+
+    file_path.write_text("".join(lines))
+
+    print()
+    print("================================================")
+    print("TR-181 DATA SAVED TO FILE")
+    print("File:", file_path)
+    print("================================================")
+
+
+
+
+
+
+11111111111111
+
+
+old_value = current[
+    parameter_name
+]
+
+current[
+    parameter_name
+] = new_value
+
+# ================================================
+# PERMANENTLY SAVE CHANGE TO tr181_defaults.py
+# ================================================
+
+save_tr181_data_to_file()
