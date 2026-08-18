@@ -1,0 +1,230 @@
+def set_parameter_value(parameter_path, new_value):
+
+    """
+    Update a TR-181 parameter in the Raspberry Pi runtime data.
+
+    Example:
+        Device.DeviceInfo.Manufacturer
+        Device.MQTT.Enable
+    """
+
+    global TR181_DATA
+
+    try:
+
+        parts = parameter_path.split(".")
+
+        current = TR181_DATA
+
+        # Walk through Device -> DeviceInfo -> etc.
+        for part in parts[:-1]:
+
+            if not isinstance(current, dict):
+                return {
+                    "success": False,
+                    "error": "Invalid TR-181 object path"
+                }
+
+            if part not in current:
+                return {
+                    "success": False,
+                    "error": f"Object not found: {part}"
+                }
+
+            current = current[part]
+
+        parameter_name = parts[-1]
+
+        if not isinstance(current, dict):
+            return {
+                "success": False,
+                "error": "Invalid parameter container"
+            }
+
+        if parameter_name not in current:
+            return {
+                "success": False,
+                "error": f"Parameter not found: {parameter_path}"
+            }
+
+        old_value = current[parameter_name]
+
+        # Update the actual runtime TR-181 value
+        current[parameter_name] = new_value
+
+        print()
+        print("==========================================")
+        print("       TR-181 PARAMETER UPDATED")
+        print("==========================================")
+        print("Parameter :", parameter_path)
+        print("Old value :", old_value)
+        print("New value :", new_value)
+        print("==========================================")
+
+        return {
+            "success": True,
+            "parameter": parameter_path,
+            "oldValue": old_value,
+            "newValue": new_value
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+def handle_set(
+    self,
+    request
+):
+
+    parameter = request.get(
+        "parameter"
+    )
+
+    value = request.get(
+        "value"
+    )
+
+    print()
+    print("==========================================")
+    print("                 SET")
+    print("==========================================")
+
+    print(
+        "SET parameter:",
+        parameter
+    )
+
+    print(
+        "SET value:",
+        value
+    )
+
+    try:
+
+        # ====================================================
+        # UPDATE ACTUAL TR-181 DATA ON RASPBERRY PI
+        # ====================================================
+
+        result = set_parameter_value(
+            parameter,
+            value
+        )
+
+        # ====================================================
+        # CHECK RESULT
+        # ====================================================
+
+        if not result.get("success"):
+
+            response = {
+
+                "messageType": "SET_RESPONSE",
+
+                "parameter": parameter,
+
+                "value": value,
+
+                "success": False,
+
+                "error": result.get(
+                    "error",
+                    "SET failed"
+                )
+
+            }
+
+            print()
+            print("SET FAILED")
+
+            print(
+                json.dumps(
+                    response,
+                    indent=4
+                )
+            )
+
+            self.publish_response(
+                response
+            )
+
+            return
+
+        # ====================================================
+        # SUCCESS RESPONSE
+        # ====================================================
+
+        response = {
+
+            "messageType": "SET_RESPONSE",
+
+            "parameter": parameter,
+
+            "value": value,
+
+            "success": True,
+
+            "oldValue": result.get(
+                "oldValue"
+            ),
+
+            "newValue": result.get(
+                "newValue"
+            )
+
+        }
+
+        print()
+        print("SET SUCCESSFUL")
+
+        print(
+            json.dumps(
+                response,
+                indent=4
+            )
+        )
+
+        # ====================================================
+        # SEND RESPONSE TO CONTROLLER
+        # ====================================================
+
+        self.publish_response(
+            response
+        )
+
+        # ====================================================
+        # SEND NOTIFICATION TO CONTROLLER
+        # ====================================================
+
+        self.publish_notification(
+            parameter,
+            value
+        )
+
+    except Exception as e:
+
+        response = {
+
+            "messageType": "SET_RESPONSE",
+
+            "parameter": parameter,
+
+            "value": value,
+
+            "success": False,
+
+            "error": str(e)
+
+        }
+
+        print()
+        print("SET FAILED:")
+
+        print(e)
+
+        self.publish_response(
+            response
+        )
